@@ -8,7 +8,7 @@
 
 #include "MidiScore.hpp"
 
-
+#if 0
 static int32_t hal_nanosleep(
     uint32_t num_nanosecs)
 {
@@ -29,6 +29,16 @@ static int32_t hal_nanosleep(
     
     return 0;
 }
+
+static void advance_cursor(
+    void)
+{
+    static const char cursor[4] = {'/', '-', '\\', '|'};
+    static int pos = 0;
+    fprintf(stderr, "%c\b", cursor[pos]);
+    pos = (pos + 1) % 4;
+}
+#endif
 
 static void _get_display_dimentions(
     int32_t* p_rows,
