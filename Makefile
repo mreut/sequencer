@@ -13,7 +13,7 @@ ECHO = echo
 
 CFLAGS=-c -Wall -ggdb -O0 -std=c++11 -fdiagnostics-color
 CFLAGS+= -I./inc -I/usr/include/alsa/
-LDFLAGS= -lasound -lpthread
+LDFLAGS= -lasound -lncurses -lpthread
 
 # Note the order of source files
 SOURCES= \

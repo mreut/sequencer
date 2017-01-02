@@ -47,7 +47,7 @@ class MidiScore {
     private:
         struct score_step score_[MIDI_SCORE_LENGTH];
         
-        uint32_t last_note_;
+        int32_t last_note_;
 };
 
 #endif

@@ -13,7 +13,7 @@ MidiScore::MidiScore(
         this->score_[n].is_set = false;
     }
     
-    this->last_note_ = 0;
+    this->last_note_ = -1;
 }
         
 int32_t MidiScore::set_note(
@@ -28,7 +28,7 @@ int32_t MidiScore::set_note(
          note = MIDI_NOTE_REST;
      }
      
-     if (index > this->last_note_) {
+     if (((int32_t) index) > this->last_note_) {
          this->last_note_ = index;
      }
      
@@ -60,17 +60,20 @@ int32_t MidiScore::clear_note(
         return -1;
     }
     
-    if (index == this->last_note_) {
+    this->score_[index].note = MIDI_NOTE_REST;
+    this->score_[index].is_set = false;
+    
+    if (((int32_t) index) == this->last_note_) {
         for (int32_t n = (this->last_note_ - 1); n >= 0; n--) {
-            if ((true == this->score_[n].is_set) || (0 == n)) {
+            if (true == this->score_[n].is_set) {
                 this->last_note_ = n;
                 break;
             }
+            else if (0 == n) {
+                this->last_note_ = -1;
+            }
         }
     }
-    
-    this->score_[index].note = MIDI_NOTE_REST;
-    this->score_[index].is_set = false;
     
     return 0;
 }
@@ -78,5 +81,5 @@ int32_t MidiScore::clear_note(
 bool MidiScore::is_end(
     uint32_t index)
 {
-    return (index > this->last_note_) ? true : false;
+    return (((int32_t) index) > this->last_note_) ? true : false;
 }
