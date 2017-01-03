@@ -7,9 +7,9 @@
 #include <cerrno>
 #include <time.h>
 
+#include "MidiOut.hpp"
 #include "MidiScore.hpp"
 
-#if 0
 static int32_t delay_ns(
     uint32_t num_nanosecs)
 {
@@ -30,17 +30,28 @@ static int32_t delay_ns(
     
     return 0;
 }
-#endif
+
 
 int32_t _init_display(
     void)
 {
     initscr();
+#if 0
+    if (false == has_colors()) {
+        endwin();
+        printf("Your terminal does not support color\n");
+        return -1;
+    }
+    start_color();
+    init_pair(1, COLOR_RED, COLOR_BLACK);
+#endif
     raw();  /* Line buffering disabled */
     keypad(stdscr, TRUE);   /* We get F1, F2 etc.. */
     noecho();
+    
     refresh();
     curs_set(0);
+    
     return 0;
 }
 
@@ -109,7 +120,7 @@ int32_t _note_to_ascii(
     uint8_t* p_string)
 {
     int32_t octave = 0;
-    uint8_t mod = ' ';
+    uint8_t mod = '\0';
 
     if (note > MIDI_NOTE_MAX) {
         return -1;
@@ -179,7 +190,7 @@ int32_t _note_to_ascii(
         p_string[0] = note;
         p_string[1] = '0' + octave;
         p_string[2] = mod;
-        p_string[3] = ' ';
+        p_string[3] = '\0';
         p_string[4] = '\0';
     }
     else {
@@ -194,9 +205,11 @@ int32_t _note_to_ascii(
 }
 
 int main(
-    void)
+    int argc,
+    char* argv[])
 {
     MidiScore score;
+    MidiOut output;
     int32_t rows = 0;
     int32_t cols = 0;
     int32_t input = 0;
@@ -205,8 +218,15 @@ int main(
     uint32_t index = 0;
     uint8_t note = 0;
     bool is_exit_requested = false;
+    bool is_play_requested = false;
     
-    _init_display();
+    if (0 != output.open(argv[1])) {
+        return -1;
+    }
+    
+    if (0 != _init_display()) {
+        return -1;
+    }
     
     while (false == is_exit_requested) {
         
@@ -228,6 +248,7 @@ int main(
                     }
                 }
                 else {
+                    is_play_requested = false;
                     p_note_string[0] = ' ';
                     p_note_string[1] = ' ';
                     p_note_string[2] = ' ';
@@ -235,8 +256,20 @@ int main(
                     p_note_string[4] = '\0';
                 }
                 
-                mvprintw(m, n * 5, "%s", p_note_string);
-                
+                if (true == is_play_requested) {
+                    attron(A_REVERSE | A_BLINK);
+                    mvprintw(m, n * 5, "%s", p_note_string);
+                    attroff(A_REVERSE | A_BLINK);
+                    refresh();
+                    output.note_on(note, 100);
+                    delay_ns(1e9);
+                    output.note_off(note, 100);
+                    mvprintw(m, n * 5, "%s", p_note_string);
+                    refresh();
+                }
+                else {
+                    mvprintw(m, n * 5, "%s", p_note_string);
+                }
             }
         }
         
@@ -249,6 +282,10 @@ int main(
         
             if ('q' == input) {
                 is_exit_requested = true;
+                break;
+            }
+            if ('p' == input) {
+                is_play_requested = true;
                 break;
             }
             else if (KEY_DC == input) {
