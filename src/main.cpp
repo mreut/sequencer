@@ -220,7 +220,10 @@ int main(
     bool is_exit_requested = false;
     bool is_play_requested = false;
     
-    if (0 != output.open(argv[1])) {
+    if (!argv[1]) {
+        printf("Insufficient magical undocumented parameters\nBetter luck next time!\n");
+        return -1;
+    } else if (0 != output.open(argv[1])) {
         return -1;
     }
     
