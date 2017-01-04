@@ -1,6 +1,7 @@
 /***** Inlcudes *****/
 
 #include "MidiScore.hpp"
+#include "abstractions.hpp"
 
 
 /***** Class Methods *****/
@@ -12,9 +13,30 @@ MidiScore::MidiScore(
         this->score_[n].note = MIDI_NOTE_REST;
         this->score_[n].is_set = false;
     }
-    
+    this->bpm_ = 60;
     this->last_note_ = -1;
 }
+
+int32_t MidiScore::set_bpm(
+    uint32_t bpm)
+{
+    if (bpm == 0) {
+        return -1;
+    }
+    
+    this->bpm_ = bpm;
+    
+    return 0;
+}
+
+int32_t MidiScore::get_bpm(
+    uint32_t* p_bpm)
+{
+    *p_bpm = this->bpm_;
+    
+    return 0;
+}
+
         
 int32_t MidiScore::set_note(
     uint32_t index,

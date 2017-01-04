@@ -12,8 +12,6 @@
 
 #define MIDI_NOTE_REST 0xFF
 
-#define MIDI_NOTE_MAX 0x7F
-
 
 /***** Structs *****/
 
@@ -29,6 +27,12 @@ class MidiScore {
     public:
         MidiScore(
             void);
+        
+        int32_t set_bpm(
+            uint32_t bpm);
+        
+        int32_t get_bpm(
+            uint32_t* p_bpm);
         
         int32_t set_note(
             uint32_t index,
@@ -46,6 +50,8 @@ class MidiScore {
         
     private:
         struct score_step score_[MIDI_SCORE_LENGTH];
+        
+        uint32_t bpm_;
         
         int32_t last_note_;
 };

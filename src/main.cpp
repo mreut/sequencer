@@ -1,36 +1,22 @@
 #include <sys/ioctl.h>
 #include <ncurses.h>
-#include <unistd.h>
-#include <cstdio>
 #include <cstdint>
 #include <cctype>
-#include <cerrno>
-#include <time.h>
 
+#include "abstractions.hpp"
 #include "MidiOut.hpp"
 #include "MidiScore.hpp"
 
-static int32_t delay_ns(
-    uint32_t num_nanosecs)
-{
-    struct timespec ts = {.tv_sec = 0, .tv_nsec = 0};
-    
-    while (num_nanosecs >= 1e9) {
-        num_nanosecs -= 1e9;
-        ts.tv_sec += 1;
-    }
-    ts.tv_nsec = num_nanosecs;
-    
-    while (nanosleep(&ts, &ts) == -1) {
-        if ( (errno == ENOSYS) || (errno == EINVAL)) {
-            fprintf(stderr, "Error: nanosleep failed\r\n");
-            return -1;
-        }
-    }
-    
-    return 0;
-}
 
+/***** Defines *****/
+
+#define PRINT_BPM(y_dim, x_dim, bpm)            \
+    do {                                        \
+        mvprintw(y_dim-2, x_dim-5, "     ");    \
+        mvprintw(y_dim-2, x_dim-5, "%d", bpm);  \
+    } while (0)
+
+/***** Local Functions *****/
 
 int32_t _init_display(
     void)
@@ -55,150 +41,128 @@ int32_t _init_display(
     return 0;
 }
 
-int32_t _ascii_to_note(
-    uint8_t* p_string,
-    uint8_t* p_note)
+static int32_t _run_sequence(
+    MidiScore* p_score,
+    MidiOut* p_output,
+    bool is_play_requested)
 {
+    uint8_t p_note_string[5] = {' ', ' ', ' ', ' ', '\0'};
+    int32_t rows = 0;
+    int32_t cols = 0;
+    uint32_t index = 0;
     uint8_t note = 0;
-    uint8_t octave = 0;
+    uint32_t delay = 0;
     
-    switch(p_string[0]) {
-    case ('A'):
-        note = 9;
-        break;
-    case ('B'):
-        note = 11;
-        break;
-    case ('C'):
-        note = 0;
-        break;
-    case ('D'):
-        note = 2;
-        break;
-    case ('E'):
-        note = 4;
-        break;
-    case ('F'):
-        note = 5;
-        break;
-    case ('G'):
-        note = 7;
-        break;
-    default:
-        return -1;
-    }
+    getmaxyx(stdscr, rows, cols);
+    index = 0;
     
-    if (isdigit(p_string[1])) {
-        if (isdigit(p_string[2])) {
-            octave = 10;
+    p_score->get_bpm(&delay);
+    delay = (uint32_t) ((60.0 / (double) delay) * 1e9);
+
+    for (int32_t m = 0; m < (rows-1); m++) {
+        
+        for (int32_t n = 0; n < 8; n++) {
+            
+            if (true != p_score->is_end(index)) {
+                p_score->get_note(index++, &note);
+                if (0 != note_to_ascii(note, p_note_string)) {
+                    p_note_string[0] = ' ';
+                    p_note_string[1] = ' ';
+                    p_note_string[2] = ' ';
+                    p_note_string[3] = ' ';
+                    p_note_string[4] = '\0';
+                }
+            }
+            else {
+                is_play_requested = false;
+                p_note_string[0] = ' ';
+                p_note_string[1] = ' ';
+                p_note_string[2] = ' ';
+                p_note_string[3] = ' ';
+                p_note_string[4] = '\0';
+            }
+            
+            if (true == is_play_requested) {
+                attron(A_REVERSE | A_BLINK);
+                mvprintw(m, n * 5, "%s", p_note_string);
+                attroff(A_REVERSE | A_BLINK);
+                refresh();
+                p_output->note_on(note, 100);
+                delay_ns(delay);
+                p_output->note_off(note, 100);
+                mvprintw(m, n * 5, "%s", p_note_string);
+                refresh();
+            }
+            else {
+                mvprintw(m, n * 5, "%s", p_note_string);
+            }
         }
-        else {
-            octave = p_string[1] - '0';
-        }
     }
-    else {
-        return -1;
-    }
-    
-    note += 12 * octave;
-    
-    if (('#' == p_string[2]) || ('#' == p_string[3])) {
-        note += 1;
-    }
-    
-    if (note > MIDI_NOTE_MAX) {
-        return -1;
-    }
-    
-    *p_note = note;
     
     return 0;
 }
 
-int32_t _note_to_ascii(
-    uint8_t note,
-    uint8_t* p_string)
+static int32_t _run_note(
+    MidiScore* p_score,
+    MidiOut* p_output,
+    bool is_play_requested,
+    uint32_t note_index)
 {
-    int32_t octave = 0;
-    uint8_t mod = '\0';
+    uint8_t p_note_string[5] = {' ', ' ', ' ', ' ', '\0'};
+    int32_t rows = 0;
+    int32_t cols = 0;
+    uint8_t note = 0;
+    uint32_t delay = 0;
+    uint32_t index = 0;
+    bool is_note_found = false;
+    
+    getmaxyx(stdscr, rows, cols);
+    index = 0;
+    
+    p_score->get_bpm(&delay);
+    delay = (uint32_t) ((60.0 / (double) delay) * 1e9);
 
-    if (note > MIDI_NOTE_MAX) {
-        return -1;
-    }
-    
-    while (note >= 12) {
-        octave++;
-        note -= 12;
-    }
-    
-    switch (note) {
-    case (0):
-        note = 'C';
-        break;
+    for (int32_t m = 0; m < (rows-1); m++) {
         
-    case (1):
-        note = 'C';
-        mod = '#';
-        break;
-    
-    case (2):
-        note = 'D';
-        break;
-        
-    case (3):
-        note = 'D';
-        mod = '#';
-        break;
-        
-    case (4):
-        note = 'E';
-        break;
-        
-    case (5):
-        note = 'F';
-        break;
-        
-    case (6):
-        note = 'F';
-        mod = '#';
-        break;
-        
-    case (7):
-        note = 'G';
-        break;
-        
-    case (8):
-        note = 'G';
-        mod = '#';
-        break;
-        
-    case (9):
-        note = 'A';
-        break;
-        
-    case (10):
-        note = 'A';
-        mod = '#';
-        break;
-        
-    case (11):
-        note = 'B';
-        break;
-    }
-    
-    if (octave < 10) {
-        p_string[0] = note;
-        p_string[1] = '0' + octave;
-        p_string[2] = mod;
-        p_string[3] = '\0';
-        p_string[4] = '\0';
-    }
-    else {
-        p_string[0] = note;
-        p_string[1] = '1';
-        p_string[2] = '0';
-        p_string[0] = note;
-        p_string[5] = '\0';
+        for (int32_t n = 0; n < 8; n++) {
+            
+            if (true != p_score->is_end(index)) {
+                p_score->get_note(index++, &note);
+                if (0 != note_to_ascii(note, p_note_string)) {
+                    p_note_string[0] = ' ';
+                    p_note_string[1] = ' ';
+                    p_note_string[2] = ' ';
+                    p_note_string[3] = ' ';
+                    p_note_string[4] = '\0';
+                }
+            }
+            else {
+                is_play_requested = false;
+                p_note_string[0] = ' ';
+                p_note_string[1] = ' ';
+                p_note_string[2] = ' ';
+                p_note_string[3] = ' ';
+                p_note_string[4] = '\0';
+            }
+            
+            if ((note_index == index) && (false == is_note_found)) {
+                is_note_found = true;
+                attron(A_REVERSE | A_BLINK);
+                mvprintw(m, n * 5, "%s", p_note_string);
+                attroff(A_REVERSE | A_BLINK);
+                refresh();
+                if (true == is_play_requested) {
+                    p_output->note_on(note, 100);
+                    delay_ns(delay);
+                    p_output->note_off(note, 100);
+                    mvprintw(m, n * 5, "%s", p_note_string);
+                    refresh();
+                }
+            }
+            else {
+                mvprintw(m, n * 5, "%s", p_note_string);
+            }
+        }
     }
     
     return 0;
@@ -217,6 +181,7 @@ int main(
     uint8_t p_note_string[5] = {' ', ' ', ' ', ' ', '\0'};
     uint32_t index = 0;
     uint8_t note = 0;
+    uint32_t bpm = 0;
     bool is_exit_requested = false;
     bool is_play_requested = false;
     
@@ -228,54 +193,19 @@ int main(
         return -1;
     }
     
+    score.get_bpm(&bpm);
+    
     while (false == is_exit_requested) {
         
         getmaxyx(stdscr, rows, cols);
-        index = 0;
         
-        for (int m = 0; m < (rows-1); m++) {
-            
-            for (int n = 0; n < 8; n++) {
-                
-                if (true != score.is_end(index)) {
-                    score.get_note(index++, &note);
-                    if (0 != _note_to_ascii(note, p_note_string)) {
-                        p_note_string[0] = ' ';
-                        p_note_string[1] = ' ';
-                        p_note_string[2] = ' ';
-                        p_note_string[3] = ' ';
-                        p_note_string[4] = '\0';
-                    }
-                }
-                else {
-                    is_play_requested = false;
-                    p_note_string[0] = ' ';
-                    p_note_string[1] = ' ';
-                    p_note_string[2] = ' ';
-                    p_note_string[3] = ' ';
-                    p_note_string[4] = '\0';
-                }
-                
-                if (true == is_play_requested) {
-                    attron(A_REVERSE | A_BLINK);
-                    mvprintw(m, n * 5, "%s", p_note_string);
-                    attroff(A_REVERSE | A_BLINK);
-                    refresh();
-                    output.note_on(note, 100);
-                    delay_ns(1e9);
-                    output.note_off(note, 100);
-                    mvprintw(m, n * 5, "%s", p_note_string);
-                    refresh();
-                }
-                else {
-                    mvprintw(m, n * 5, "%s", p_note_string);
-                }
-            }
-        }
+        _run_sequence(&score, &output, is_play_requested);
         
+        PRINT_BPM(rows, cols, bpm);
         wmove(stdscr, rows-1, cols-5);
         refresh();
         input_count = 0;
+        is_play_requested = false;
         
         while (1) {
             input = getch();
@@ -289,7 +219,8 @@ int main(
                 break;
             }
             else if (KEY_DC == input) {
-                score.clear_note(--index);
+                if (index > 0) index--;
+                score.clear_note(index);
                 break;
             }
             else if (KEY_BACKSPACE == input) {
@@ -298,10 +229,34 @@ int main(
                     mvwaddch(stdscr, rows-1, cols-5+input_count, ' ');
                 }
             }
-            else if ((KEY_ENTER == input) || (10 == input)) {
-                if (0 == _ascii_to_note(p_note_string, &note)) {
-                    score.set_note(index, note);
+            else if (KEY_UP == input) {
+                if (0 == score.set_bpm(bpm + 1)) {
+                    PRINT_BPM(rows, cols, ++bpm);
                 }
+            }
+            else if (KEY_LEFT == input) {
+                if (index != 0) --index;
+                _run_note(&score, &output, false, index);
+            }
+            else if (KEY_RIGHT == input) {
+                _run_note(&score, &output, false, ++index);
+            }
+            else if (KEY_DOWN == input) {
+                if (bpm > 1) {
+                    if (0 == score.set_bpm(bpm - 1)) {
+                        PRINT_BPM(rows, cols, --bpm);
+                    }
+                }
+            }
+            else if ((KEY_ENTER == input) || (10 == input)) {
+                if (0 == ascii_to_note(p_note_string, &note)) {
+                    score.set_note(index++, note);
+                }
+                p_note_string[0] = '\0';
+                p_note_string[1] = '\0';
+                p_note_string[2] = '\0';
+                p_note_string[3] = '\0';
+                p_note_string[4] = '\0';
                 werase(stdscr);
                 break;
             }
