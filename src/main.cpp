@@ -1,4 +1,3 @@
-#include <sys/ioctl.h>
 #include <ncurses.h>
 #include <cstdint>
 #include <cctype>
