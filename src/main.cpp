@@ -21,22 +21,14 @@ using namespace std;
         mvprintw(y_dim-2, x_dim-5, "%d", bpm);  \
     } while (0)
 
+
 /***** Local Functions *****/
 
 int32_t _init_display(
     void)
 {
     initscr();
-#if 0
-    if (false == has_colors()) {
-        endwin();
-        printf("Your terminal does not support color\n");
-        return -1;
-    }
-    start_color();
-    init_pair(1, COLOR_RED, COLOR_BLACK);
-#endif
-    raw();  /* Line buffering disabled */
+    raw();                  /* Line buffering disabled */
     keypad(stdscr, TRUE);   /* We get F1, F2 etc.. */
     noecho();
     
@@ -46,111 +38,72 @@ int32_t _init_display(
     return 0;
 }
 
-static int32_t _run_sequence(
-    MidiScore* p_score,
-    MidiOut* p_output,
-    bool is_play_requested)
+static int32_t _print_score(
+    MidiScore& score)
 {
     string note_string = "\0";
+    uint32_t index = 0;
     int32_t rows = 0;
     int32_t cols = 0;
-    uint32_t index = 0;
     uint8_t note = 0;
-    uint32_t delay = 0;
     
     getmaxyx(stdscr, rows, cols);
-    index = 0;
     
-    p_score->get_bpm(&delay);
-    delay = (uint32_t) ((60.0 / (double) delay) * 1e9);
-
-    for (int32_t m = 0; m < (rows-1); m++) {
+    for (int32_t m = 0; (m < (rows-1)) && (true != score.is_end(index)); m++) {
         
-        for (int32_t n = 0; n < 8; n++) {
-            
-            if (true != p_score->is_end(index)) {
-                p_score->get_note(index++, &note);
-                if (0 != note_to_ascii(note, note_string)) {
-                    note_string = "\0";
-                }
+        for (int32_t n = 0; (n < 8) && (true != score.is_end(index)); n++) {
+
+            if (0 != score.get_note(index++, &note)) {
+                return -1;
             }
-            else {
-                is_play_requested = false;
+            else if (0 != note_to_ascii(note, note_string)) {
                 note_string = "\0";
             }
-            
-            if (true == is_play_requested) {
-                attron(A_REVERSE | A_BLINK);
-                mvprintw(m, n * 5, "%s", note_string.c_str());
-                attroff(A_REVERSE | A_BLINK);
-                refresh();
-                p_output->note_on(note, 100);
-                delay_ns(delay);
-                p_output->note_off(note, 100);
-                mvprintw(m, n * 5, "%s", note_string.c_str());
-                refresh();
-            }
-            else {
-                mvprintw(m, n * 5, "%s", note_string.c_str());
-            }
+                 
+            mvprintw(m, n * 5, "%s", note_string.c_str());
         }
     }
     
     return 0;
 }
 
-static int32_t _run_note(
-    MidiScore* p_score,
-    MidiOut* p_output,
-    bool is_play_requested,
-    uint32_t note_index)
+static int32_t _play_score(
+    MidiScore& score,
+    MidiOut& output)
 {
     string note_string = "\0";
     int32_t rows = 0;
     int32_t cols = 0;
+    uint32_t index = 0;
     uint8_t note = 0;
     uint32_t delay = 0;
-    uint32_t index = 0;
-    bool is_note_found = false;
     
     getmaxyx(stdscr, rows, cols);
     index = 0;
     
-    p_score->get_bpm(&delay);
+    score.get_bpm(&delay);
     delay = (uint32_t) ((60.0 / (double) delay) * 1e9);
 
-    for (int32_t m = 0; m < (rows-1); m++) {
+    for (int32_t m = 0; (m < (rows-1)) && (true != score.is_end(index)); m++) {
         
-        for (int32_t n = 0; n < 8; n++) {
-            
-            if (true != p_score->is_end(index)) {
-                p_score->get_note(index++, &note);
-                if (0 != note_to_ascii(note, note_string)) {
-                    note_string = "\0";
-                }
+        for (int32_t n = 0; (n < 8) && (true != score.is_end(index)); n++) {
+
+            if (0 != score.get_note(index++, &note)) {
+                return -1;
             }
-            else {
-                is_play_requested = false;
-                note_string = "\0";
+            else if (0 != note_to_ascii(note, note_string)) {
+                return -1;
             }
-            
-            if ((note_index == index) && (false == is_note_found)) {
-                is_note_found = true;
-                attron(A_REVERSE | A_BLINK);
-                mvprintw(m, n * 5, "%s", note_string.c_str());
-                attroff(A_REVERSE | A_BLINK);
-                refresh();
-                if (true == is_play_requested) {
-                    p_output->note_on(note, 100);
-                    delay_ns(delay);
-                    p_output->note_off(note, 100);
-                    mvprintw(m, n * 5, "%s", note_string.c_str());
-                    refresh();
-                }
-            }
-            else {
-                mvprintw(m, n * 5, "%s", note_string.c_str());
-            }
+
+            attron(A_REVERSE | A_BLINK);
+            mvprintw(m, n * 5, "%s", note_string.c_str());
+            attroff(A_REVERSE | A_BLINK);
+            refresh();
+            output.note_on(note, 100);
+            delay_ns(delay);
+            output.note_off(note, 100);
+            mvprintw(m, n * 5, "%s", note_string.c_str());
+            refresh();
         }
     }
     
@@ -174,13 +127,14 @@ int main(
     bool is_play_requested = false;
     
     if (!argv[1]) {
-        printf("Insufficient magical undocumented parameters\nBetter luck next time!\n");
+        printf("Insufficient magical undocumented parameters\n\
+                Better luck next time!\n");
         return -1;
-    } else if (0 != output.open(argv[1])) {
+    } 
+    else if (0 != output.open(argv[1])) {
         return -1;
     }
-    
-    if (0 != _init_display()) {
+    else if (0 != _init_display()) {
         return -1;
     }
     
@@ -191,9 +145,13 @@ int main(
         getmaxyx(stdscr, rows, cols);
         werase(stdscr);
         
-        _run_sequence(&score, &output, is_play_requested);
-        
         PRINT_BPM(rows, cols, bpm);
+        _print_score(score);
+        
+        if (true == is_play_requested) {
+            _play_score(score, output);
+        }
+        
         wmove(stdscr, rows-1, cols-5);
         refresh();
         is_play_requested = false;
@@ -226,11 +184,11 @@ int main(
                 }
             }
             else if (KEY_LEFT == input) {
-                if (index != 0) --index;
-                _run_note(&score, &output, false, index);
+                //if (index != 0) --index;
+                //_run_note(&score, &output, false, index);
             }
             else if (KEY_RIGHT == input) {
-                _run_note(&score, &output, false, ++index);
+                //_run_note(&score, &output, false, ++index);
             }
             else if (KEY_DOWN == input) {
                 if (bpm > 1) {
