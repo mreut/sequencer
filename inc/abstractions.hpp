@@ -4,6 +4,12 @@
 /***** Includes *****/
 
 #include <cstdint>
+#include <string>
+
+
+/***** Namespace *****/
+
+using namespace std;
 
 
 /***** Defines *****/
@@ -17,11 +23,11 @@ extern int32_t delay_ns(
     uint32_t num_nanosecs);
 
 extern int32_t ascii_to_note(
-    uint8_t* p_string,
-    uint8_t* p_note);
+    string& ascii,
+    uint8_t& note);
 
 extern int32_t note_to_ascii(
     uint8_t note,
-    uint8_t* p_string);
+    string& ascii);
 
 #endif

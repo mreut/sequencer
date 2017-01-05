@@ -8,6 +8,11 @@
 #include "MidiScore.hpp"
 
 
+/***** Namespace *****/
+
+using namespace std;
+
+
 /***** Defines *****/
 
 #define PRINT_BPM(y_dim, x_dim, bpm)            \
@@ -46,7 +51,7 @@ static int32_t _run_sequence(
     MidiOut* p_output,
     bool is_play_requested)
 {
-    uint8_t p_note_string[5] = {' ', ' ', ' ', ' ', '\0'};
+    string note_string = "\0";
     int32_t rows = 0;
     int32_t cols = 0;
     uint32_t index = 0;
@@ -65,36 +70,28 @@ static int32_t _run_sequence(
             
             if (true != p_score->is_end(index)) {
                 p_score->get_note(index++, &note);
-                if (0 != note_to_ascii(note, p_note_string)) {
-                    p_note_string[0] = ' ';
-                    p_note_string[1] = ' ';
-                    p_note_string[2] = ' ';
-                    p_note_string[3] = ' ';
-                    p_note_string[4] = '\0';
+                if (0 != note_to_ascii(note, note_string)) {
+                    note_string = "\0";
                 }
             }
             else {
                 is_play_requested = false;
-                p_note_string[0] = ' ';
-                p_note_string[1] = ' ';
-                p_note_string[2] = ' ';
-                p_note_string[3] = ' ';
-                p_note_string[4] = '\0';
+                note_string = "\0";
             }
             
             if (true == is_play_requested) {
                 attron(A_REVERSE | A_BLINK);
-                mvprintw(m, n * 5, "%s", p_note_string);
+                mvprintw(m, n * 5, "%s", note_string.c_str());
                 attroff(A_REVERSE | A_BLINK);
                 refresh();
                 p_output->note_on(note, 100);
                 delay_ns(delay);
                 p_output->note_off(note, 100);
-                mvprintw(m, n * 5, "%s", p_note_string);
+                mvprintw(m, n * 5, "%s", note_string.c_str());
                 refresh();
             }
             else {
-                mvprintw(m, n * 5, "%s", p_note_string);
+                mvprintw(m, n * 5, "%s", note_string.c_str());
             }
         }
     }
@@ -108,7 +105,7 @@ static int32_t _run_note(
     bool is_play_requested,
     uint32_t note_index)
 {
-    uint8_t p_note_string[5] = {' ', ' ', ' ', ' ', '\0'};
+    string note_string = "\0";
     int32_t rows = 0;
     int32_t cols = 0;
     uint8_t note = 0;
@@ -128,39 +125,31 @@ static int32_t _run_note(
             
             if (true != p_score->is_end(index)) {
                 p_score->get_note(index++, &note);
-                if (0 != note_to_ascii(note, p_note_string)) {
-                    p_note_string[0] = ' ';
-                    p_note_string[1] = ' ';
-                    p_note_string[2] = ' ';
-                    p_note_string[3] = ' ';
-                    p_note_string[4] = '\0';
+                if (0 != note_to_ascii(note, note_string)) {
+                    note_string = "\0";
                 }
             }
             else {
                 is_play_requested = false;
-                p_note_string[0] = ' ';
-                p_note_string[1] = ' ';
-                p_note_string[2] = ' ';
-                p_note_string[3] = ' ';
-                p_note_string[4] = '\0';
+                note_string = "\0";
             }
             
             if ((note_index == index) && (false == is_note_found)) {
                 is_note_found = true;
                 attron(A_REVERSE | A_BLINK);
-                mvprintw(m, n * 5, "%s", p_note_string);
+                mvprintw(m, n * 5, "%s", note_string.c_str());
                 attroff(A_REVERSE | A_BLINK);
                 refresh();
                 if (true == is_play_requested) {
                     p_output->note_on(note, 100);
                     delay_ns(delay);
                     p_output->note_off(note, 100);
-                    mvprintw(m, n * 5, "%s", p_note_string);
+                    mvprintw(m, n * 5, "%s", note_string.c_str());
                     refresh();
                 }
             }
             else {
-                mvprintw(m, n * 5, "%s", p_note_string);
+                mvprintw(m, n * 5, "%s", note_string.c_str());
             }
         }
     }
@@ -177,8 +166,7 @@ int main(
     int32_t rows = 0;
     int32_t cols = 0;
     int32_t input = 0;
-    int32_t input_count = 0;
-    uint8_t p_note_string[5] = {' ', ' ', ' ', ' ', '\0'};
+    string note_string = "     ";
     uint32_t index = 0;
     uint8_t note = 0;
     uint32_t bpm = 0;
@@ -198,13 +186,13 @@ int main(
     while (false == is_exit_requested) {
         
         getmaxyx(stdscr, rows, cols);
+        werase(stdscr);
         
         _run_sequence(&score, &output, is_play_requested);
         
         PRINT_BPM(rows, cols, bpm);
         wmove(stdscr, rows-1, cols-5);
         refresh();
-        input_count = 0;
         is_play_requested = false;
         
         while (1) {
@@ -224,9 +212,9 @@ int main(
                 break;
             }
             else if (KEY_BACKSPACE == input) {
-                if (0 < input_count) {
-                    p_note_string[--input_count] = ' ';
-                    mvwaddch(stdscr, rows-1, cols-5+input_count, ' ');
+                if (0 < note_string.length()) {
+                    note_string.pop_back();
+                    mvwaddch(stdscr, rows-1, cols-5+note_string.length(), ' ');
                 }
             }
             else if (KEY_UP == input) {
@@ -249,24 +237,19 @@ int main(
                 }
             }
             else if ((KEY_ENTER == input) || (10 == input)) {
-                if (0 == ascii_to_note(p_note_string, &note)) {
+                if (0 == ascii_to_note(note_string, note)) {
                     score.set_note(index++, note);
                 }
-                p_note_string[0] = '\0';
-                p_note_string[1] = '\0';
-                p_note_string[2] = '\0';
-                p_note_string[3] = '\0';
-                p_note_string[4] = '\0';
-                werase(stdscr);
+                note_string = "\0";
                 break;
             }
             else if (isprint(input)) {
-                if (4 > input_count) {
+                if (4 > note_string.length()) {
                     if (isalpha(input)) {
                         input &= ~0x20;
                     }
-                    mvwaddch(stdscr, rows-1, cols-5+input_count, input);
-                    p_note_string[input_count++] = input;                    
+                    mvwaddch(stdscr, rows-1, cols-5+note_string.length(), input);
+                    note_string += input;                    
                 }
             }
         }

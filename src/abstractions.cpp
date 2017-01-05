@@ -32,70 +32,69 @@ int32_t delay_ns(
     return 0;
 }
 
-
 int32_t ascii_to_note(
-    uint8_t* p_string,
-    uint8_t* p_note)
+    string& ascii,
+    uint8_t& note)
 {
-    uint8_t note = 0;
+    uint8_t tmp = 0;
     uint8_t octave = 0;
     
-    switch(p_string[0]) {
+    switch(ascii[0]) {
     case ('A'):
-        note = 9;
+        tmp = 9;
         break;
     case ('B'):
-        note = 11;
+        tmp = 11;
         break;
     case ('C'):
-        note = 0;
+        tmp = 0;
         break;
     case ('D'):
-        note = 2;
+        tmp = 2;
         break;
     case ('E'):
-        note = 4;
+        tmp = 4;
         break;
     case ('F'):
-        note = 5;
+        tmp = 5;
         break;
     case ('G'):
-        note = 7;
+        tmp = 7;
         break;
     default:
         return -1;
     }
     
-    if (isdigit(p_string[1])) {
-        if (isdigit(p_string[2])) {
+    if (isdigit(ascii[1])) {
+        if (isdigit(ascii[2])) {
             octave = 10;
         }
         else {
-            octave = p_string[1] - '0';
+            octave = ascii[1] - '0';
         }
     }
     else {
         return -1;
     }
     
-    note += 12 * octave;
+    tmp += 12 * octave;
     
-    if (('#' == p_string[2]) || ('#' == p_string[3])) {
-        note += 1;
+    if (('#' == ascii[2]) || ('#' == ascii[3])) {
+        tmp += 1;
     }
     
-    if (note > MIDI_NOTE_MAX) {
+    if (tmp > MIDI_NOTE_MAX) {
         return -1;
     }
     
-    *p_note = note;
+    note = tmp;
     
     return 0;
 }
 
 int32_t note_to_ascii(
     uint8_t note,
-    uint8_t* p_string)
+    string& ascii)
 {
     int32_t octave = 0;
     uint8_t mod = '\0';
@@ -164,20 +163,15 @@ int32_t note_to_ascii(
         break;
     }
     
-    if (octave < 10) {
-        p_string[0] = note;
-        p_string[1] = '0' + octave;
-        p_string[2] = mod;
-        p_string[3] = '\0';
-        p_string[4] = '\0';
+    ascii = "";
+    ascii += note;
+    if (octave >= 10) {
+        ascii += "10";
     }
     else {
-        p_string[0] = note;
-        p_string[1] = '1';
-        p_string[2] = '0';
-        p_string[0] = note;
-        p_string[5] = '\0';
+        ascii += '0' + octave;
     }
+    ascii += mod;
     
     return 0;
 }
