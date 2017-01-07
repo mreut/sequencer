@@ -117,8 +117,6 @@ int main(
     MidiOut output;
     int32_t rows = 0;
     int32_t cols = 0;
-    int32_t input = 0;
-    string note_string = "     ";
     uint32_t index = 0;
     uint8_t note = 0;
     uint32_t bpm = 0;
@@ -155,64 +153,6 @@ int main(
         refresh();
         is_play_requested = false;
         
-        while (1) {
-            input = getch();
-        
-            if ('q' == input) {
-                is_exit_requested = true;
-                break;
-            }
-            if ('p' == input) {
-                is_play_requested = true;
-                break;
-            }
-            else if (KEY_DC == input) {
-                if (index > 0) index--;
-                score.clear_note(index);
-                break;
-            }
-            else if (KEY_BACKSPACE == input) {
-                if (0 < note_string.length()) {
-                    note_string.pop_back();
-                    mvwaddch(stdscr, rows-1, cols-5+note_string.length(), ' ');
-                }
-            }
-            else if (KEY_UP == input) {
-                if (0 == score.set_bpm(bpm + 1)) {
-                    PRINT_BPM(rows, cols, ++bpm);
-                }
-            }
-            else if (KEY_LEFT == input) {
-                //if (index != 0) --index;
-                //_run_note(&score, &output, false, index);
-            }
-            else if (KEY_RIGHT == input) {
-                //_run_note(&score, &output, false, ++index);
-            }
-            else if (KEY_DOWN == input) {
-                if (bpm > 1) {
-                    if (0 == score.set_bpm(bpm - 1)) {
-                        PRINT_BPM(rows, cols, --bpm);
-                    }
-                }
-            }
-            else if ((KEY_ENTER == input) || (10 == input)) {
-                if (0 == ascii_to_note(note_string, note)) {
-                    score.set_note(index++, note);
-                }
-                note_string = "\0";
-                break;
-            }
-            else if (isprint(input)) {
-                if (4 > note_string.length()) {
-                    if (isalpha(input)) {
-                        input &= ~0x20;
-                    }
-                    mvwaddch(stdscr, rows-1, cols-5+note_string.length(), input);
-                    note_string += input;                    
-                }
-            }
-        }
     }
     
     endwin();
