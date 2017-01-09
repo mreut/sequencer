@@ -19,6 +19,7 @@ LDFLAGS= -lasound -lncurses -lpthread
 SOURCES= \
 	$(SRC_DIR)/main.cpp \
 	$(SRC_DIR)/abstractions.cpp \
+	$(SRC_DIR)/input.cpp \
 	$(SRC_DIR)/MidiOut.cpp \
 	$(SRC_DIR)/MidiScore.cpp \
 	

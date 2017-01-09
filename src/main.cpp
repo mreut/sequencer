@@ -3,6 +3,7 @@
 #include <cctype>
 
 #include "abstractions.hpp"
+#include "input.hpp"
 #include "MidiOut.hpp"
 #include "MidiScore.hpp"
 
@@ -109,6 +110,7 @@ static int32_t _play_score(
     return 0;
 }
 
+#if 0
 int main(
     int argc,
     char* argv[])
@@ -154,6 +156,23 @@ int main(
         is_play_requested = false;
         
     }
+    
+    endwin();
+    
+    return 0;
+}
+#endif
+
+int main(
+    void)
+{
+    _init_display();
+    
+    input_start();
+    
+    sleep(10);
+    
+    input_stop();
     
     endwin();
     
