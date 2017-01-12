@@ -19,10 +19,10 @@ LDFLAGS= -lasound -lncurses -lpthread
 SOURCES= \
 	$(SRC_DIR)/main.cpp \
 	$(SRC_DIR)/abstractions.cpp \
-	$(SRC_DIR)/input.cpp \
 	$(SRC_DIR)/MidiOut.cpp \
 	$(SRC_DIR)/MidiScore.cpp \
-	
+	$(SRC_DIR)/UserInterface.cpp
+
 # Substitution of file endings
 # All strings in SOURCES with ending of .cpp is substituted by .o
 OBJECTS=$(patsubst $(SRC_DIR)/%.cpp,$(OBJ_DIR)/%.o,$(SOURCES))

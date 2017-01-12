@@ -3,9 +3,9 @@
 #include <cctype>
 
 #include "abstractions.hpp"
-#include "input.hpp"
 #include "MidiOut.hpp"
 #include "MidiScore.hpp"
+#include "UserInterface.hpp"
 
 
 /***** Namespace *****/
@@ -166,15 +166,21 @@ int main(
 int main(
     void)
 {
-    _init_display();
+    UserInterface ui;
+    string str = "";
+    int32_t in = 0;
     
-    input_start();
+    for (int n = 0; n < 10; n++) {
+        while (0 != ui.get_input(in));
+        
+        if (isalpha(in)) {
+            str = to_string(n);
+        }
+        
+        ui.print(0, 0, A_NORMAL, str);
+    }
     
-    sleep(10);
-    
-    input_stop();
-    
-    endwin();
+    sleep(1);
     
     return 0;
 }

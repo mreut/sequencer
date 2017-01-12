@@ -7,6 +7,7 @@
 #include <string>
 #include <mutex>
 #include <thread>
+#include <queue>
 
 
 /***** Defines *****/
@@ -32,10 +33,14 @@ class UserInterface {
         int32_t print(
             uint32_t y,
             uint32_t x,
-            string text);
+            int attr,
+            string& text);
+        
+        int32_t get_input(
+            int32_t& in);
         
     private:
-        void display_main(
+        void ncurses_main(
             void);
 
         static int32_t reference_count_;
@@ -43,4 +48,7 @@ class UserInterface {
         static int write_pipe_;
         static mutex mutex_;
         static thread thread_;
-}
+        static queue<int32_t> fifo_;
+};
+
+#endif
