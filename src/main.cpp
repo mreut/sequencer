@@ -110,31 +110,27 @@ static int32_t _play_score(
     return 0;
 }
 
-#if 0
 int main(
     int argc,
     char* argv[])
 {
+    UserInterface ui;
     MidiScore score;
     MidiOut output;
-    int32_t rows = 0;
-    int32_t cols = 0;
     uint32_t index = 0;
     uint8_t note = 0;
     uint32_t bpm = 0;
     bool is_exit_requested = false;
     bool is_play_requested = false;
+    string str = "";
+    int32_t in = 0;
+    int32_t r = -1
     
     if (!argv[1]) {
-        printf("Insufficient magical undocumented parameters\n\
-                Better luck next time!\n");
-        return -1;
+        goto main_exit;
     } 
     else if (0 != output.open(argv[1])) {
-        return -1;
-    }
-    else if (0 != _init_display()) {
-        return -1;
+        goto main_exit;
     }
     
     score.get_bpm(&bpm);
@@ -157,30 +153,8 @@ int main(
         
     }
     
-    endwin();
-    
-    return 0;
-}
-#endif
+    r = 0;
 
-int main(
-    void)
-{
-    UserInterface ui;
-    string str = "";
-    int32_t in = 0;
-    
-    for (int n = 0; n < 10; n++) {
-        while (0 != ui.get_input(in));
-        
-        if (isalpha(in)) {
-            str = to_string(n);
-        }
-        
-        ui.print(0, 0, A_NORMAL, str);
-    }
-    
-    sleep(1);
-    
-    return 0;
+main_exit:
+    return r;
 }
