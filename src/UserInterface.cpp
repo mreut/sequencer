@@ -31,6 +31,8 @@ struct print_message_info {
 /***** Static Members *****/
 
 int32_t UserInterface::reference_count_ = 0;
+int32_t UserInterface::cols_ = 0;
+int32_t UserInterface::rows_ = 0;
 int UserInterface::read_pipe_ = 0;
 int UserInterface::write_pipe_ = 0;
 mutex UserInterface::mutex_;
@@ -105,6 +107,7 @@ UserInterface::UserInterface(
         this->write_pipe_ = fd[1];
     
         this->thread_ = thread(&UserInterface::ncurses_main, this);
+        sleep(1);
     }
     else {
         this->reference_count_++;
@@ -123,6 +126,13 @@ UserInterface::~UserInterface(
         close(this->read_pipe_); 
         close(this->write_pipe_); 
     }
+}
+
+int32_t UserInterface::clear(
+    void)
+{
+    string tmp = "h4xX0rz";
+    return this->print(UINT32_MAX, UINT32_MAX, A_NORMAL, tmp);
 }
 
 int32_t UserInterface::print(
@@ -175,6 +185,18 @@ int32_t UserInterface::get_input(
     return r;
 }
 
+int32_t UserInterface::get_cols(
+    void)
+{
+    return this->cols_;
+}
+
+int32_t UserInterface::get_rows(
+    void)
+{
+    return this->rows_;
+}
+
 void UserInterface::ncurses_main(
     void)
 {
@@ -182,6 +204,7 @@ void UserInterface::ncurses_main(
     uint32_t x = 0;
     uint32_t y = 0;
     int attr = A_NORMAL;
+    int32_t m = 0;
     int32_t n = 0;
     
     initscr();
@@ -195,6 +218,10 @@ void UserInterface::ncurses_main(
 
     while (0 < this->reference_count_) {
         
+        getmaxyx(stdscr, m, n);
+        this->rows_ = m;
+        this->cols_ = n;
+        
         n = getch();
         if (ERR != n) {
             // capitalize all alphabetical input
@@ -206,9 +233,14 @@ void UserInterface::ncurses_main(
         
         n = _poll_print(this->read_pipe_, y, x, attr, text);
         if (n > 0) {
-            attron(attr);
-            mvprintw(y, x, "%s", text);
-            attroff(attr);
+            if ((UINT32_MAX == y) && (UINT32_MAX == x)) {
+                wclear(stdscr);
+            }
+            else {
+                attron(attr);
+                mvprintw(y, x, "%s", text);
+                attroff(attr);
+            }
         }
     }
 

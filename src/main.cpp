@@ -24,49 +24,40 @@ using namespace std;
 
 /***** Local Functions *****/
 
-int32_t _init_display(
-    void)
-{
-    initscr();
-    raw();                  /* Line buffering disabled */
-    keypad(stdscr, TRUE);   /* We get F1, F2 etc.. */
-    noecho();
-    
-    refresh();
-    curs_set(0);
-    
-    return 0;
-}
-
 static int32_t _print_score(
+    UserInterface& ui,
     MidiScore& score)
 {
     string note_string = "\0";
     uint32_t index = 0;
-    int32_t rows = 0;
-    int32_t cols = 0;
+    int32_t row = 0;
+    int32_t col = 0;
     uint8_t note = 0;
     
-    getmaxyx(stdscr, rows, cols);
-    
-    for (int32_t m = 0; (m < (rows-1)) && (true != score.is_end(index)); m++) {
+    while (true != score.is_end(index)) {
         
-        for (int32_t n = 0; (n < 8) && (true != score.is_end(index)); n++) {
-
-            if (0 != score.get_note(index++, &note)) {
-                return -1;
-            }
-            else if (0 != note_to_ascii(note, note_string)) {
+        if (0 != score.get_note(index++, &note)) {
+            return -1;
+        }
+        else if (0 != note_to_ascii(note, note_string)) {
                 note_string = "\0";
-            }
-                 
-            mvprintw(m, n * 5, "%s", note_string.c_str());
+        }
+    
+        ui.print(row, col, A_NORMAL, note_string);
+    
+        if (col >= ui.get_cols()) {
+            row += 1;
+            col = 0;
+        }
+        else {
+            col += 5;
         }
     }
     
     return 0;
 }
 
+#if 0
 static int32_t _play_score(
     MidiScore& score,
     MidiOut& output)
@@ -109,6 +100,10 @@ static int32_t _play_score(
     
     return 0;
 }
+#endif
+
+
+/***** Global Functions *****/
 
 int main(
     int argc,
@@ -124,33 +119,37 @@ int main(
     bool is_play_requested = false;
     string str = "";
     int32_t in = 0;
-    int32_t r = -1
-    
+    int32_t r = -1;
+
+#if 0
     if (!argv[1]) {
         goto main_exit;
     } 
     else if (0 != output.open(argv[1])) {
         goto main_exit;
     }
-    
+#endif
+
     score.get_bpm(&bpm);
+    score.set_note(0, 34);
+    score.set_note(1, 24);
+    score.set_note(2, 54);
+    score.set_note(3, 36);
+    score.set_note(4, 38);
+    score.set_note(5, 39);
     
     while (false == is_exit_requested) {
         
-        getmaxyx(stdscr, rows, cols);
-        werase(stdscr);
+        ui.clear();
+        _print_score(ui, score);
+        sleep(1);
         
-        PRINT_BPM(rows, cols, bpm);
-        _print_score(score);
+        ui.clear();
+        sleep(1);
         
-        if (true == is_play_requested) {
-            _play_score(score, output);
-        }
-        
-        wmove(stdscr, rows-1, cols-5);
-        refresh();
-        is_play_requested = false;
-        
+        _print_score(ui, score);
+        sleep(1);
+        is_exit_requested = true;
     }
     
     r = 0;

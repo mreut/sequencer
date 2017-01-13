@@ -4,6 +4,7 @@
 /***** Includes *****/
 
 #include <cstdint>
+#include <mutex>
 
 
 /***** Defines *****/
@@ -11,6 +12,11 @@
 #define MIDI_SCORE_LENGTH 1024
 
 #define MIDI_NOTE_REST 0xFF
+
+
+/***** Namespace *****/
+
+using namespace std;
 
 
 /***** Structs *****/
@@ -54,6 +60,8 @@ class MidiScore {
         uint32_t bpm_;
         
         int32_t last_note_;
+        
+        mutex mutex_;
 };
 
 #endif

@@ -24,7 +24,9 @@ int32_t MidiScore::set_bpm(
         return -1;
     }
     
+    this->mutex_.lock();
     this->bpm_ = bpm;
+    this->mutex_.unlock();
     
     return 0;
 }
@@ -32,7 +34,9 @@ int32_t MidiScore::set_bpm(
 int32_t MidiScore::get_bpm(
     uint32_t* p_bpm)
 {
+    this->mutex_.lock();
     *p_bpm = this->bpm_;
+    this->mutex_.unlock();
     
     return 0;
 }
@@ -54,8 +58,10 @@ int32_t MidiScore::set_note(
          this->last_note_ = index;
      }
      
+     this->mutex_.lock();
      this->score_[index].note = note;
      this->score_[index].is_set = true;
+     this->mutex_.unlock();
      
      return 0;
 }
@@ -68,9 +74,11 @@ int32_t MidiScore::get_note(
         return -1;
     }
     
+    this->mutex_.lock();
     *p_note = (true == this->score_[index].is_set) ?
               this->score_[index].note : 
               MIDI_NOTE_REST;
+    this->mutex_.unlock();
     
     return 0;
 }
@@ -82,6 +90,7 @@ int32_t MidiScore::clear_note(
         return -1;
     }
     
+    this->mutex_.lock();
     this->score_[index].note = MIDI_NOTE_REST;
     this->score_[index].is_set = false;
     
@@ -96,6 +105,7 @@ int32_t MidiScore::clear_note(
             }
         }
     }
+    this->mutex_.unlock();
     
     return 0;
 }
@@ -103,5 +113,11 @@ int32_t MidiScore::clear_note(
 bool MidiScore::is_end(
     uint32_t index)
 {
-    return (((int32_t) index) > this->last_note_) ? true : false;
+    bool is_end = false;
+    
+    this->mutex_.lock();
+    is_end = (((int32_t) index) > this->last_note_) ? true : false;
+    this->mutex_.unlock();
+    
+    return is_end;
 }

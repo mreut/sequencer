@@ -30,6 +30,9 @@ class UserInterface {
         ~UserInterface(
             void);
         
+        int32_t clear(
+            void);
+        
         int32_t print(
             uint32_t y,
             uint32_t x,
@@ -39,11 +42,19 @@ class UserInterface {
         int32_t get_input(
             int32_t& in);
         
+        int32_t get_rows(
+            void);
+            
+        int32_t get_cols(
+            void);
+        
     private:
         void ncurses_main(
             void);
 
         static int32_t reference_count_;
+        static int32_t cols_;
+        static int32_t rows_;
         static int read_pipe_;
         static int write_pipe_;
         static mutex mutex_;
