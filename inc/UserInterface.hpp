@@ -5,6 +5,7 @@
 
 #include <cstdint>
 #include <string>
+#include <condition_variable>
 #include <mutex>
 #include <thread>
 #include <queue>
@@ -57,6 +58,7 @@ class UserInterface {
         static int32_t rows_;
         static int read_pipe_;
         static int write_pipe_;
+        static condition_variable condition_;
         static mutex mutex_;
         static thread thread_;
         static queue<int32_t> fifo_;

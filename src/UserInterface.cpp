@@ -35,6 +35,7 @@ int32_t UserInterface::cols_ = 0;
 int32_t UserInterface::rows_ = 0;
 int UserInterface::read_pipe_ = 0;
 int UserInterface::write_pipe_ = 0;
+condition_variable UserInterface::condition_;
 mutex UserInterface::mutex_;
 thread UserInterface::thread_;
 queue<int32_t> UserInterface::fifo_;
@@ -174,14 +175,17 @@ int32_t UserInterface::get_input(
 {
     int32_t r = -1;
     
-    this->mutex_.lock();
-    if (0 != this->fifo_.size()) {
-        in = this->fifo_.front();
-        this->fifo_.pop();
-        r = 0;
+    // note, mutex will unlock automatically at end of function
+    unique_lock<mutex> lck(this->mutex_);
+    if (0 == this->fifo_.size()) {
+        // block until data is available
+        this->condition_.wait(lck);
     }
-    this->mutex_.unlock();
     
+    in = this->fifo_.front();
+    this->fifo_.pop();
+    r = 0;
+
     return r;
 }
 
@@ -228,6 +232,7 @@ void UserInterface::ncurses_main(
             if (isalpha(n)) n &= ~0x20;
             this->mutex_.lock();
             this->fifo_.push(n);
+            this->condition_.notify_one();
             this->mutex_.unlock();
         }
         
