@@ -6,6 +6,7 @@
 #include <ctime>
 #include <cerrno>
 #include <algorithm> 
+#include <functional>
 #include <string>
 #include <thread>
 
@@ -39,7 +40,7 @@ enum input_command {
 
 /***** Local Variables *****/
 
-//thread _play_thread;
+thread _play_thread;
 
 bool _is_play = false;
 
@@ -98,8 +99,8 @@ static int32_t _print_score(
         ui.print(row, col, A_NORMAL, note_string);
     
         if (col >= ui.get_cols()) {
-            row += 1;
             col = 0;
+            row += 1;
         }
         else {
             col += 5;
@@ -109,49 +110,54 @@ static int32_t _print_score(
     return 0;
 }
 
-#if 0
-static int32_t _play_score(
+static int32_t _play_main(
+    UserInterface& ui,
     MidiScore& score,
-    MidiOut& output)
+    MidiOut& out)
 {
-    string note_string = "\0";
+    string str = "";
     int32_t row = 0;
     int32_t col = 0;
     uint32_t index = 0;
     uint8_t note = 0;
+    uint16_t bpm = 0;
     uint32_t delay = 0;
     
     while (true == _is_play) {
-    
-        score.get_bpm(&delay);
-        delay = (uint32_t) ((60.0 / (double) delay) * 1e9);
+        score.get_bpm(bpm);
+        delay = (uint32_t) ((60.0 / (double) bpm) * 1e9);
         
         if (0 != score.get_note(index++, &note)) {
             return -1;
         }
-        else if (0 != note_to_ascii(note, note_string)) {
+        else if (0 != note_to_ascii(note, str)) {
             return -1;
         }
 
-        ui.print(row, col, A_REVERSE | A_BLINK, note_string);
-        output.note_on(note, 100);
+        ui.print(row, col, A_REVERSE | A_BLINK, str);
+        if (MIDI_NOTE_REST != note) out.note_on(note, 100);
         _delay_ns(delay);
-        output.note_off(note, 100);
-        ui.print(row, col, A_NORMAL, note_string);
+        if (MIDI_NOTE_REST != note) out.note_off(note, 100);
+        ui.print(row, col, A_NORMAL, str);
         
-        if (col >= ui.get_cols()) {
-            row += 1;
+        if (true == score.is_end(index)) {
+            index = 0;
             col = 0;
+            row = 0;
         }
         else {
-            col += 5;
+            if (col >= ui.get_cols()) {
+                col = 0;
+                row += 1;
+            }
+            else {
+                col += 5;
+            }
         }
-        
     }
     
     return 0;
 }
-#endif
 
 
 /***** Global Functions *****/
@@ -250,10 +256,24 @@ int main(
                 break;
                 
             case (CMD_PLAY):
-                _is_play = (false == _is_play) ? true : false;
+                if (true == _is_play) {
+                    _is_play = false;
+                    _play_thread.join();
+                }
+                else {
+                    _is_play = true;
+                    _play_thread = thread(_play_main,
+                                          ref(ui),
+                                          ref(score),
+                                          ref(output));
+                }
                 break;
                 
             case (CMD_QUIT):
+                if (true == _is_play) {
+                    _is_play = false;
+                    _play_thread.join();
+                }
                 is_exit_requested = true;
                 break;
             }
