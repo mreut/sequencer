@@ -18,6 +18,7 @@
 /***** Defines *****/
 
 #define SPACES_PER_PARAM 8
+#define SPACES_PER_DIALOG 32
 
 
 /***** Namespace *****/
@@ -32,9 +33,11 @@ enum input_command {
     CMD_BPM = 'B',
     CMD_CLEAR = 'C',
     CMD_INDEX = 'I',
+    CMD_LOAD = 'L',
     CMD_NOTE = 'N',
     CMD_PLAY = 'P',
     CMD_QUIT = 'Q',
+    CMD_SAVE = 'S',
 };
 
 
@@ -89,7 +92,7 @@ static int32_t _print_score(
     
     while (true != score.is_end(index)) {
         
-        if (0 != score.get_note(index++, &note)) {
+        if (0 != score.get_note(index++, note)) {
             return -1;
         }
         else if (0 != note_to_ascii(note, note_string)) {
@@ -127,7 +130,7 @@ static int32_t _play_main(
         score.get_bpm(bpm);
         delay = (uint32_t) ((60.0 / (double) bpm) * 1e9);
         
-        if (0 != score.get_note(index++, &note)) {
+        if (0 != score.get_note(index++, note)) {
             return -1;
         }
         else if (0 != note_to_ascii(note, str)) {
@@ -188,13 +191,15 @@ int main(
         goto main_exit;
     }
 
+#if 0
     score.set_note(0, 33);
     score.set_note(1, 24);
     score.set_note(2, 54);
     score.set_note(3, 36);
     score.set_note(4, 38);
     score.set_note(5, 39);
-    
+#endif
+
     while (false == is_exit_requested) {
         
         if (true == is_refresh_needed) {
@@ -203,40 +208,47 @@ int main(
             _print_score(ui, score);
         }
         
-        if (true == _is_play) str = "[*]  "; else str = "[ ]  ";
-        
-        if (CMD_INDEX == cmd) {
-            str += "[INDEX]: ";
-            str += entry + string(SPACES_PER_PARAM - entry.length(), ' ');
+        if (CMD_SAVE == cmd) {
+            str = "[SAVE]: " + entry;
+        }
+        else if (CMD_LOAD == cmd) {
+            str = "[LOAD]: " + entry;
         }
         else {
-            str += " INDEX : ";
-            tmp = to_string(index);
-            str += tmp + string(SPACES_PER_PARAM - tmp.length(), ' ');
-        }
-        
-        if (CMD_NOTE == cmd) {
-            str += "[NOTE]: ";
-            str += entry + string(SPACES_PER_PARAM - entry.length(), ' ');
-        }
-        else {
-            str += " NOTE : ";
-            score.get_note(index, &note);
-            note_to_ascii(note, tmp);
-            str += tmp + string(SPACES_PER_PARAM - tmp.length(), ' ');
-        }
+            if (true == _is_play) str = "[*]  "; else str = "[ ]  ";
+            
+            if (CMD_INDEX == cmd) {
+                str += "[INDEX]: ";
+                str += entry + string(SPACES_PER_PARAM - entry.length(), ' ');
+            }
+            else {
+                str += " INDEX : ";
+                tmp = to_string(index);
+                str += tmp + string(SPACES_PER_PARAM - tmp.length(), ' ');
+            }
+            
+            if (CMD_NOTE == cmd) {
+                str += "[NOTE]: ";
+                str += entry + string(SPACES_PER_PARAM - entry.length(), ' ');
+            }
+            else {
+                str += " NOTE : ";
+                score.get_note(index, note);
+                note_to_ascii(note, tmp);
+                str += tmp + string(SPACES_PER_PARAM - tmp.length(), ' ');
+            }
 
-        if (CMD_BPM == cmd) {
-            str += "[BPM]: ";
-            str += entry + string(SPACES_PER_PARAM - entry.length(), ' ');
+            if (CMD_BPM == cmd) {
+                str += "[BPM]: ";
+                str += entry + string(SPACES_PER_PARAM - entry.length(), ' ');
+            }
+            else {
+                str += " BPM : ";
+                score.get_bpm(bpm);
+                tmp = to_string(bpm);
+                str += tmp + string(SPACES_PER_PARAM - tmp.length(), ' ');
+            }
         }
-        else {
-            str += " BPM : ";
-            score.get_bpm(bpm);
-            tmp = to_string(bpm);
-            str += tmp + string(SPACES_PER_PARAM - tmp.length(), ' ');
-        }
-        
         ui.print(ui.get_rows() - 1, 0, A_NORMAL, str);
         
         if (0 != ui.get_input(in)) {
@@ -244,6 +256,11 @@ int main(
         }
         else if (CMD_INVALID == cmd) {
             switch (in) {
+            case (CMD_SAVE):
+            case (CMD_LOAD):
+                is_refresh_needed = true;
+                // intentional fall through
+                
             case (CMD_BPM):
             case (CMD_INDEX):
             case (CMD_NOTE):
@@ -279,7 +296,12 @@ int main(
             }
         }
         else if (isprint(in)) {
-            if (7 > entry.length()) entry += in;
+            if ((CMD_SAVE == cmd) || (CMD_LOAD == cmd)) {
+                if (SPACES_PER_DIALOG > entry.length()) entry += in;
+            }
+            else {
+                if (7 > entry.length()) entry += in;
+            }
         }
         else if (KEY_BACKSPACE == in) {
             if (0 < entry.length()) {
@@ -312,6 +334,16 @@ int main(
                     }
                     break;
                 
+                case (CMD_SAVE):
+                    score.save(entry);
+                    is_refresh_needed = true;
+                    break;
+                
+                case (CMD_LOAD):
+                    score.load(entry);
+                    is_refresh_needed = true;
+                    break;
+                
                 case (CMD_CLEAR):
                 case (CMD_PLAY):
                 case (CMD_QUIT):
@@ -322,6 +354,35 @@ int main(
             }
             cmd = CMD_INVALID;
             entry = "";
+        }
+        else if (KEY_LEFT == in) {
+            if (CMD_BPM == cmd) {
+                if (1 < bpm) bpm--;
+                entry = to_string(bpm);
+            }
+            else if (CMD_INDEX == cmd) {
+                if (0 != index) index--;
+                entry = to_string(index);
+            }
+            else if (CMD_NOTE == cmd) {
+                if (MIDI_NOTE_REST == note) note = MIDI_NOTE_MAX;
+                else if (0 != note) note--;
+                note_to_ascii(note, entry);
+            }
+        }
+        else if (KEY_RIGHT == in) {
+            if (CMD_BPM == cmd) {
+                if (UINT16_MAX > bpm) bpm++;
+                entry = to_string(bpm);
+            }
+            else if (CMD_INDEX == cmd) {
+                if (MIDI_SCORE_LENGTH > index) index++;
+                entry = to_string(index);
+            }
+            else if (CMD_NOTE == cmd) {
+                if (MIDI_NOTE_MAX > note) note++; else note = MIDI_NOTE_REST;
+                note_to_ascii(note, entry);
+            }
         }
     }
     

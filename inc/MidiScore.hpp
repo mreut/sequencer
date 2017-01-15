@@ -5,6 +5,7 @@
 
 #include <cstdint>
 #include <mutex>
+#include <string>
 
 
 /***** Defines *****/
@@ -12,6 +13,8 @@
 #define MIDI_SCORE_LENGTH 1024
 
 #define MIDI_NOTE_REST 0xFF
+
+#define MIDI_NOTE_MAX 0x7F
 
 
 /***** Namespace *****/
@@ -34,6 +37,12 @@ class MidiScore {
         MidiScore(
             void);
         
+        int32_t save(
+            string name);
+            
+        int32_t load(
+            string name);
+        
         int32_t set_bpm(
             uint16_t bpm);
         
@@ -46,7 +55,7 @@ class MidiScore {
             
         int32_t get_note(
             uint32_t index,
-            uint8_t* p_note);
+            uint8_t& note);
             
         int32_t clear_note(
             uint32_t index);

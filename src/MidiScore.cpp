@@ -1,11 +1,9 @@
-/***** Inlcudes *****/
+/***** Includes *****/
+
+#include <iostream>
+#include <fstream>
 
 #include "MidiScore.hpp"
-
-
-/***** Defines *****/
-
-#define MIDI_NOTE_MAX 0x7F
 
 
 /***** Class Methods *****/
@@ -19,6 +17,58 @@ MidiScore::MidiScore(
     }
     this->bpm_ = 60;
     this->last_note_ = -1;
+}
+
+int32_t MidiScore::save(
+    string name)
+{
+    int32_t r = -1;
+    ofstream out;
+    
+    out.open(name);
+    if (true == out.is_open()) {
+        out << to_string(this->bpm_) + "\n";
+        for (int32_t n = 0; n <= this->last_note_; n++) {
+            out << to_string(this->score_[n].note) + "\n";
+        }
+        out.close();
+        r = 0;
+    }
+    
+    return r;
+}
+
+int32_t MidiScore::load(
+    string name)
+{
+    uint32_t n = 0;
+    int32_t r = -1;
+    string str = "";
+    ifstream in;
+    
+    in.open(name);
+    if (true == in.is_open()) {
+        
+        this->last_note_ = 0;
+        getline(in, str);
+        
+        if (true != in.eof()) {
+            this->bpm_ = stoi(str);
+            
+            while (n < MIDI_SCORE_LENGTH) {
+                getline(in, str);
+                
+                if ('\0' == str[0]) break;
+                
+                this->score_[n].note = stoi(str);
+                this->score_[n].is_set = true;
+                this->last_note_ = n++;
+            }
+        }
+        r = 0;
+    }
+
+    return r;
 }
 
 int32_t MidiScore::set_bpm(
@@ -72,16 +122,16 @@ int32_t MidiScore::set_note(
             
 int32_t MidiScore::get_note(
     uint32_t index,
-    uint8_t* p_note)
+    uint8_t& note)
 {
     if (index > MIDI_SCORE_LENGTH) {
         return -1;
     }
     
     this->mutex_.lock();
-    *p_note = (true == this->score_[index].is_set) ?
-              this->score_[index].note : 
-              MIDI_NOTE_REST;
+    note = (true == this->score_[index].is_set) ?
+           this->score_[index].note : 
+           MIDI_NOTE_REST;
     this->mutex_.unlock();
     
     return 0;
