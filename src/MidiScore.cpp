@@ -18,7 +18,7 @@ MidiScore::MidiScore(
 }
 
 int32_t MidiScore::set_bpm(
-    uint32_t bpm)
+    uint16_t bpm)
 {
     if (bpm == 0) {
         return -1;
@@ -32,10 +32,10 @@ int32_t MidiScore::set_bpm(
 }
 
 int32_t MidiScore::get_bpm(
-    uint32_t* p_bpm)
+    uint16_t& bpm)
 {
     this->mutex_.lock();
-    *p_bpm = this->bpm_;
+    bpm = this->bpm_;
     this->mutex_.unlock();
     
     return 0;
