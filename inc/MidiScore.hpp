@@ -64,4 +64,15 @@ class MidiScore {
         mutex mutex_;
 };
 
+
+/***** Global Functions *****/
+
+extern int32_t ascii_to_note(
+    string& ascii,
+    uint8_t& note);
+
+extern int32_t note_to_ascii(
+    uint8_t note,
+    string& ascii);
+
 #endif

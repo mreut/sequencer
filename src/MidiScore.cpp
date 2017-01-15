@@ -1,7 +1,11 @@
 /***** Inlcudes *****/
 
 #include "MidiScore.hpp"
-#include "abstractions.hpp"
+
+
+/***** Defines *****/
+
+#define MIDI_NOTE_MAX 0x7F
 
 
 /***** Class Methods *****/
@@ -120,4 +124,160 @@ bool MidiScore::is_end(
     this->mutex_.unlock();
     
     return is_end;
+}
+
+
+/***** Global Functions *****/
+
+int32_t ascii_to_note(
+    string& ascii,
+    uint8_t& note)
+{
+    uint8_t tmp = 0;
+    uint8_t octave = 0;
+    int32_t r = 0;
+    
+    if ('-' == ascii[0]) {
+        note = MIDI_NOTE_REST;
+    }
+    else if (isalpha(ascii[0])) {
+        switch(ascii[0]) {
+        case ('A'):
+            tmp = 9;
+            break;
+        case ('B'):
+            tmp = 11;
+            break;
+        case ('C'):
+            tmp = 0;
+            break;
+        case ('D'):
+            tmp = 2;
+            break;
+        case ('E'):
+            tmp = 4;
+            break;
+        case ('F'):
+            tmp = 5;
+            break;
+        case ('G'):
+            tmp = 7;
+            break;
+        default:
+            r = -1;
+        }
+        
+        if (0 == r) {
+            if (isdigit(ascii[1])) {
+                if (isdigit(ascii[2])) {
+                    octave = 10;
+                }
+                else {
+                    octave = ascii[1] - '0';
+                }
+            
+                tmp += 12 * octave;
+                if (('#' == ascii[2]) || ('#' == ascii[3])) {
+                    tmp += 1;
+                }
+                note = tmp;
+            }
+            else {
+                r = -1;
+            }
+        }
+    }
+    
+    return r;
+}
+
+int32_t note_to_ascii(
+    uint8_t note,
+    string& ascii)
+{
+    int32_t octave = 0;
+    int32_t r = 0;
+    bool is_sharp = false;
+
+    if (note == MIDI_NOTE_REST) {
+        ascii = '-';
+    }
+    else if (note < MIDI_NOTE_MAX) {    
+        while (note >= 12) {
+            octave++;
+            note -= 12;
+        }
+        
+        switch (note) {
+        case (0):
+            note = 'C';
+            break;
+            
+        case (1):
+            note = 'C';
+            is_sharp = true;
+            break;
+        
+        case (2):
+            note = 'D';
+            break;
+            
+        case (3):
+            note = 'D';
+            is_sharp = true;
+            break;
+            
+        case (4):
+            note = 'E';
+            break;
+            
+        case (5):
+            note = 'F';
+            break;
+            
+        case (6):
+            note = 'F';
+            is_sharp = true;
+            break;
+            
+        case (7):
+            note = 'G';
+            break;
+            
+        case (8):
+            note = 'G';
+            is_sharp = true;
+            break;
+            
+        case (9):
+            note = 'A';
+            break;
+            
+        case (10):
+            note = 'A';
+            is_sharp = true;
+            break;
+            
+        case (11):
+            note = 'B';
+            break;
+        }
+        
+        ascii = "";
+        ascii += note;
+        if (octave >= 10) {
+            ascii += "10";
+        }
+        else {
+            ascii += '0' + octave;
+        }
+        if (is_sharp) {
+            ascii += '#';
+        }
+    }
+    else {
+        r = -1;
+    }
+    
+    return r;
 }

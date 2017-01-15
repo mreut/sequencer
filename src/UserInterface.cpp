@@ -1,4 +1,4 @@
-/***** Inlcudes *****/
+/***** Includes *****/
 
 #include <sys/select.h>
 #include <sys/types.h>

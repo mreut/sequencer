@@ -21,6 +21,7 @@ MidiOut::~MidiOut(
 int32_t MidiOut::open(
     char* p_port_name)
 {
+#ifndef __MIDI_STUB
     int mode = SND_RAWMIDI_SYNC;
     int status = 0;
     
@@ -29,7 +30,7 @@ int32_t MidiOut::open(
         fprintf(stderr, "Failed to open MIDI output: %s", snd_strerror(status));
         return -1;
     }
-    
+#endif
     return 0;
 }
 
@@ -42,12 +43,14 @@ int32_t MidiOut::note_on(
     
     message[1] = note;
     message[2] = velocity;
-    
+
+#ifndef __MIDI_STUB
     status = snd_rawmidi_write(this->p_handle_, message, 3);
     if (0 > status) {
         return -1;
     }
-    
+#endif
+
     return 0;
 }
 
@@ -60,11 +63,13 @@ int32_t MidiOut::note_off(
     
     message[1] = note;
     message[2] = velocity;
-    
+
+#ifndef __MIDI_STUB
     status = snd_rawmidi_write(this->p_handle_, message, 3);
     if (0 > status) {
         return -1;
     }
-    
+#endif
+
     return 0;
 }

@@ -1,11 +1,14 @@
+/***** Includes *****/
+
 #include <ncurses.h>
 #include <cstdint>
 #include <cctype>
+#include <ctime>
+#include <cerrno>
 #include <algorithm> 
 #include <string>
 #include <thread>
 
-#include "abstractions.hpp"
 #include "MidiOut.hpp"
 #include "MidiScore.hpp"
 #include "UserInterface.hpp"
@@ -14,6 +17,7 @@
 /***** Defines *****/
 
 #define SPACES_PER_PARAM 8
+
 
 /***** Namespace *****/
 
@@ -41,6 +45,27 @@ bool _is_play = false;
 
 
 /***** Local Functions *****/
+
+static int32_t _delay_ns(
+    uint32_t num_nanosecs)
+{
+    struct timespec ts = {.tv_sec = 0, .tv_nsec = 0};
+    
+    while (num_nanosecs >= 1e9) {
+        num_nanosecs -= 1e9;
+        ts.tv_sec += 1;
+    }
+    ts.tv_nsec = num_nanosecs;
+    
+    while (nanosleep(&ts, &ts) == -1) {
+        if ( (errno == ENOSYS) || (errno == EINVAL)) {
+            fprintf(stderr, "Error: nanosleep failed\r\n");
+            return -1;
+        }
+    }
+    
+    return 0;
+}
 
 static bool _is_number(
     string& s)
@@ -110,7 +135,7 @@ static int32_t _play_score(
 
         ui.print(row, col, A_REVERSE | A_BLINK, note_string);
         output.note_on(note, 100);
-        delay_ns(delay);
+        _delay_ns(delay);
         output.note_off(note, 100);
         ui.print(row, col, A_NORMAL, note_string);
         
@@ -150,14 +175,12 @@ int main(
     int32_t in = 0;
     int32_t r = -1;
 
-#if 0
     if (!argv[1]) {
         goto main_exit;
     } 
     else if (0 != output.open(argv[1])) {
         goto main_exit;
     }
-#endif
 
     score.set_note(0, 33);
     score.set_note(1, 24);
@@ -223,6 +246,7 @@ int main(
             
             case (CMD_CLEAR):
                 score.clear_note(index);
+                is_refresh_needed = true;
                 break;
                 
             case (CMD_PLAY):
