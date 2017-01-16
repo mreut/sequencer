@@ -348,7 +348,7 @@ int main(
                     
                 case (CMD_NOTE):
                     if (0 == ascii_to_note(entry, note)) {
-                        score.set_note(index, note);
+                        score.set_note(index++, note);
                         is_refresh_needed = true;
                     }
                     break;
