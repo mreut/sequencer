@@ -18,6 +18,7 @@
 /***** Defines *****/
 
 #define SPACES_PER_PARAM 8
+#define SPACES_PER_NOTE 5
 #define SPACES_PER_DIALOG 32
 
 
@@ -82,31 +83,40 @@ static bool _is_number(
 
 static int32_t _print_score(
     UserInterface& ui,
-    MidiScore& score)
+    MidiScore& score,
+    uint32_t index)
 {
-    string note_string = "\0";
-    uint32_t index = 0;
+    string str = "\0";
     int32_t row = 0;
     int32_t col = 0;
     uint8_t note = 0;
     
-    while (true != score.is_end(index)) {
+    while ((col <= ui.get_cols()) && (row <= (ui.get_rows() - 2))) {
         
-        if (0 != score.get_note(index++, note)) {
-            return -1;
+        if (true != score.is_end(index)) {
+            if (0 != score.get_note(index++, note)) {
+                return -1;
+            }
+            else if (0 != note_to_ascii(note, str)) {
+                    str = "";
+            }
+            
+            if (5 > str.length()) {
+                str += string(SPACES_PER_NOTE - str.length(), ' ');
+            }
         }
-        else if (0 != note_to_ascii(note, note_string)) {
-                note_string = "\0";
+        else {
+            str = string(SPACES_PER_NOTE, ' ');
         }
+        
+        ui.print(row, col, A_NORMAL, str);
     
-        ui.print(row, col, A_NORMAL, note_string);
-    
-        if (col >= ui.get_cols()) {
+        if ((ui.get_cols() - (SPACES_PER_NOTE * 2)) <= col) {
             col = 0;
             row += 1;
         }
         else {
-            col += 5;
+            col += SPACES_PER_NOTE;
         }
     }
     
@@ -136,7 +146,7 @@ static int32_t _play_main(
         else if (0 != note_to_ascii(note, str)) {
             return -1;
         }
-
+        
         ui.print(row, col, A_REVERSE | A_BLINK, str);
         if (MIDI_NOTE_REST != note) out.note_on(note, 100);
         _delay_ns(delay);
@@ -144,17 +154,25 @@ static int32_t _play_main(
         ui.print(row, col, A_NORMAL, str);
         
         if (true == score.is_end(index)) {
+            _print_score(ui, score, 0);
             index = 0;
             col = 0;
             row = 0;
         }
         else {
-            if (col >= ui.get_cols()) {
-                col = 0;
-                row += 1;
+            if (col >= (ui.get_cols() - (SPACES_PER_NOTE*2))) {
+                if (row >= (ui.get_rows() - 2)) {
+                    _print_score(ui, score, index);
+                    col = 0;
+                    row = 0;
+                }
+                else {
+                    col = 0;
+                    row += 1;
+                }
             }
             else {
-                col += 5;
+                col += SPACES_PER_NOTE;
             }
         }
     }
@@ -205,7 +223,7 @@ int main(
         if (true == is_refresh_needed) {
             is_refresh_needed = false;
             ui.clear();
-            _print_score(ui, score);
+            _print_score(ui, score, index);
         }
         
         if (CMD_SAVE == cmd) {
@@ -324,6 +342,7 @@ int main(
                 case (CMD_INDEX):
                     if (true == _is_number(entry)) {
                         index = stoi(entry);
+                        is_refresh_needed = true;
                     }
                     break;
                     
@@ -363,6 +382,7 @@ int main(
             else if (CMD_INDEX == cmd) {
                 if (0 != index) index--;
                 entry = to_string(index);
+                is_refresh_needed = true;
             }
             else if (CMD_NOTE == cmd) {
                 if (MIDI_NOTE_REST == note) note = MIDI_NOTE_MAX;
@@ -378,6 +398,7 @@ int main(
             else if (CMD_INDEX == cmd) {
                 if (MIDI_SCORE_LENGTH > index) index++;
                 entry = to_string(index);
+                is_refresh_needed = true;
             }
             else if (CMD_NOTE == cmd) {
                 if (MIDI_NOTE_MAX > note) note++; else note = MIDI_NOTE_REST;

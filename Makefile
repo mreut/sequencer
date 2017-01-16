@@ -26,7 +26,7 @@ SOURCES= \
 # Substitution of file endings
 # All strings in SOURCES with ending of .cpp is substituted by .o
 OBJECTS=$(patsubst $(SRC_DIR)/%.cpp,$(OBJ_DIR)/%.o,$(SOURCES))
-EXECUTABLE=$(BIN_DIR)/hello
+EXECUTABLE=$(BIN_DIR)/sequencer
 
 # Default make option
 all: $(SOURCES) $(EXECUTABLE)
