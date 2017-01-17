@@ -26,7 +26,7 @@ using namespace std;
 
 struct score_step {
     uint8_t note;
-    bool is_set;
+    uint32_t count;
 };
 
 
@@ -56,6 +56,14 @@ class MidiScore {
         int32_t get_note(
             uint32_t index,
             uint8_t& note);
+        
+        int32_t set_count(
+            uint32_t index,
+            uint8_t count);
+            
+        int32_t get_count(
+            uint32_t index,
+            uint8_t& count);
             
         int32_t clear_note(
             uint32_t index);
