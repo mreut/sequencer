@@ -35,6 +35,7 @@ enum input_command {
     CMD_CLEAR = 'C',
     CMD_INDEX = 'I',
     CMD_LOAD = 'L',
+    CMD_MOVE = 'M',
     CMD_NOTE = 'N',
     CMD_PLAY = 'P',
     CMD_QUIT = 'Q',
@@ -133,8 +134,10 @@ static int32_t _play_main(
     int32_t col = 0;
     uint32_t index = 0;
     uint8_t note = 0;
+    uint8_t last_note = 0;
     uint16_t bpm = 0;
     uint32_t delay = 0;
+    bool is_sustain = false;
     
     while (true == _is_play) {
         score.get_bpm(bpm);
@@ -192,6 +195,7 @@ int main(
     MidiOut output;
     enum input_command cmd = CMD_INVALID;
     uint16_t index = 0;
+    uint16_t display = 0;
     uint8_t note = 0;
     uint16_t bpm = 0;
     bool is_exit_requested = false;
@@ -223,7 +227,7 @@ int main(
         if (true == is_refresh_needed) {
             is_refresh_needed = false;
             ui.clear();
-            _print_score(ui, score, index);
+            _print_score(ui, score, display);
         }
         
         if (CMD_SAVE == cmd) {
@@ -231,6 +235,9 @@ int main(
         }
         else if (CMD_LOAD == cmd) {
             str = "[LOAD]: " + entry;
+        }
+        else if (CMD_MOVE == cmd) {
+            str = "[MOVE]: " + entry;
         }
         else {
             if (true == _is_play) str = "[*]  "; else str = "[ ]  ";
@@ -276,6 +283,7 @@ int main(
             switch (in) {
             case (CMD_SAVE):
             case (CMD_LOAD):
+             case (CMD_MOVE):
                 is_refresh_needed = true;
                 // intentional fall through
                 
@@ -342,10 +350,17 @@ int main(
                 case (CMD_INDEX):
                     if (true == _is_number(entry)) {
                         index = stoi(entry);
+                    }
+                    break;
+                
+                case (CMD_MOVE):
+                    if (true == _is_number(entry)) {
+                        display = stoi(entry);
+                        index = display;
                         is_refresh_needed = true;
                     }
                     break;
-                    
+                
                 case (CMD_NOTE):
                     if (0 == ascii_to_note(entry, note)) {
                         score.set_note(index++, note);
