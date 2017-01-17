@@ -243,12 +243,15 @@ int main(
         
         if (CMD_SAVE == cmd) {
             str = "[SAVE]: " + entry;
+            str += string(SPACES_PER_DIALOG - str.length(), ' ');
         }
         else if (CMD_LOAD == cmd) {
             str = "[LOAD]: " + entry;
+            str += string(SPACES_PER_DIALOG - str.length(), ' ');
         }
         else if (CMD_MOVE == cmd) {
             str = "[MOVE]: " + entry;
+            str += string(SPACES_PER_DIALOG - str.length(), ' ');
         }
         else {
             if (true == _is_play) str = "[*]  "; else str = "[ ]  ";

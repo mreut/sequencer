@@ -61,11 +61,11 @@ int32_t MidiScore::load(
                 getline(in, str);
                 if ('\0' == str[0]) break;
                 this->score_[n].note = stoi(str);
-                this->last_note_ = n++;
                 // second is note count
                 getline(in, str);
                 if ('\0' == str[0]) break;
                 this->score_[n].count = stoi(str);
+                this->last_note_ = n++;
             }
         }
         r = 0;
