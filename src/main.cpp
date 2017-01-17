@@ -17,8 +17,8 @@
 
 /***** Defines *****/
 
-#define SPACES_PER_PARAM 8
-#define SPACES_PER_NOTE 5
+#define SPACES_PER_PARAM 10
+#define SPACES_PER_NOTE 10
 #define SPACES_PER_DIALOG 32
 
 
@@ -32,7 +32,7 @@ using namespace std;
 enum input_command {
     CMD_INVALID = 0,
     CMD_BPM = 'B',
-    CMD_CLEAR = 'C',
+    CMD_DELETE = 'D',
     CMD_INDEX = 'I',
     CMD_LOAD = 'L',
     CMD_MOVE = 'M',
@@ -91,18 +91,23 @@ static int32_t _print_score(
     int32_t row = 0;
     int32_t col = 0;
     uint8_t note = 0;
+    uint8_t count = 0;
     
     while ((col <= ui.get_cols()) && (row <= (ui.get_rows() - 2))) {
         
         if (true != score.is_end(index)) {
-            if (0 != score.get_note(index++, note)) {
+            if ((0 != score.get_note(index, note)) ||
+                (0 != score.get_count(index++, count))) {
                 return -1;
             }
             else if (0 != note_to_ascii(note, str)) {
-                    str = "";
+                str = "";
+            }
+            else if (1 < count) {
+                str += "*" + to_string(count);
             }
             
-            if (5 > str.length()) {
+            if (SPACES_PER_NOTE > str.length()) {
                 str += string(SPACES_PER_NOTE - str.length(), ' ');
             }
         }
@@ -134,25 +139,30 @@ static int32_t _play_main(
     int32_t col = 0;
     uint32_t index = 0;
     uint8_t note = 0;
-    uint8_t last_note = 0;
+    uint8_t count = 0;
     uint16_t bpm = 0;
     uint32_t delay = 0;
-    bool is_sustain = false;
     
     while (true == _is_play) {
         score.get_bpm(bpm);
         delay = (uint32_t) ((60.0 / (double) bpm) * 1e9);
         
-        if (0 != score.get_note(index++, note)) {
+        if ((0 != score.get_note(index, note)) || 
+            (0 != score.get_count(index++, count))) {
             return -1;
         }
         else if (0 != note_to_ascii(note, str)) {
             return -1;
         }
+        else if (1 < count) {
+            str += "*" + to_string(count);
+        }
         
         ui.print(row, col, A_REVERSE | A_BLINK, str);
         if (MIDI_NOTE_REST != note) out.note_on(note, 100);
-        _delay_ns(delay);
+        while ((true == _is_play) && (0 != count--)) {
+            _delay_ns(delay);
+        }
         if (MIDI_NOTE_REST != note) out.note_off(note, 100);
         ui.print(row, col, A_NORMAL, str);
         
@@ -197,6 +207,7 @@ int main(
     uint16_t index = 0;
     uint16_t display = 0;
     uint8_t note = 0;
+    uint8_t count = 0;
     uint16_t bpm = 0;
     bool is_exit_requested = false;
     bool is_refresh_needed = true;
@@ -232,15 +243,29 @@ int main(
         
         if (CMD_SAVE == cmd) {
             str = "[SAVE]: " + entry;
+            str += string(SPACES_PER_DIALOG - str.length(), ' ');
         }
         else if (CMD_LOAD == cmd) {
             str = "[LOAD]: " + entry;
+            str += string(SPACES_PER_DIALOG - str.length(), ' ');
         }
         else if (CMD_MOVE == cmd) {
             str = "[MOVE]: " + entry;
+            str += string(SPACES_PER_DIALOG - str.length(), ' ');
         }
         else {
             if (true == _is_play) str = "[*]  "; else str = "[ ]  ";
+            
+            if (CMD_BPM == cmd) {
+                str += "[BPM]: ";
+                str += entry + string(SPACES_PER_PARAM - entry.length(), ' ');
+            }
+            else {
+                str += " BPM : ";
+                score.get_bpm(bpm);
+                tmp = to_string(bpm);
+                str += tmp + string(SPACES_PER_PARAM - tmp.length(), ' ');
+            }
             
             if (CMD_INDEX == cmd) {
                 str += "[INDEX]: ";
@@ -260,17 +285,6 @@ int main(
                 str += " NOTE : ";
                 score.get_note(index, note);
                 note_to_ascii(note, tmp);
-                str += tmp + string(SPACES_PER_PARAM - tmp.length(), ' ');
-            }
-
-            if (CMD_BPM == cmd) {
-                str += "[BPM]: ";
-                str += entry + string(SPACES_PER_PARAM - entry.length(), ' ');
-            }
-            else {
-                str += " BPM : ";
-                score.get_bpm(bpm);
-                tmp = to_string(bpm);
                 str += tmp + string(SPACES_PER_PARAM - tmp.length(), ' ');
             }
         }
@@ -293,7 +307,7 @@ int main(
                 cmd = (enum input_command) in;
                 break;
             
-            case (CMD_CLEAR):
+            case (CMD_DELETE):
                 score.clear_note(index);
                 is_refresh_needed = true;
                 break;
@@ -326,7 +340,7 @@ int main(
                 if (SPACES_PER_DIALOG > entry.length()) entry += in;
             }
             else {
-                if (7 > entry.length()) entry += in;
+                if ((SPACES_PER_PARAM - 2) > entry.length()) entry += in;
             }
         }
         else if (KEY_BACKSPACE == in) {
@@ -337,9 +351,9 @@ int main(
                 cmd = CMD_INVALID;
             }
         }
-        else if ((KEY_ENTER == in) || (10 == in))  {
-            switch (cmd) {
+        else if ((KEY_ENTER == in) || (10 == in)) {
             if (0 != entry.length()) {
+                switch (cmd) {
                 case (CMD_BPM):
                     if (true == _is_number(entry)) {
                         bpm = stoi(entry);
@@ -362,6 +376,14 @@ int main(
                     break;
                 
                 case (CMD_NOTE):
+                    r = entry.find("*");
+                    if ((r >= 2) && ((r + 1) < (int32_t) entry.length())) {
+                        tmp = entry.substr(r + 1);
+                        if (true == _is_number(tmp)) {
+                            count = stoi(tmp);
+                            score.set_count(index, count);
+                        }
+                    }
                     if (0 == ascii_to_note(entry, note)) {
                         score.set_note(index++, note);
                         is_refresh_needed = true;
@@ -378,7 +400,7 @@ int main(
                     is_refresh_needed = true;
                     break;
                 
-                case (CMD_CLEAR):
+                case (CMD_DELETE):
                 case (CMD_PLAY):
                 case (CMD_QUIT):
                 case (CMD_INVALID):

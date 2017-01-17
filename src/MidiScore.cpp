@@ -13,7 +13,7 @@ MidiScore::MidiScore(
 {
     for (uint32_t n = 0; n < MIDI_SCORE_LENGTH; n++) {
         this->score_[n].note = MIDI_NOTE_REST;
-        this->score_[n].is_set = false;
+        this->score_[n].count = 0;
     }
     this->bpm_ = 60;
     this->last_note_ = -1;
@@ -30,6 +30,7 @@ int32_t MidiScore::save(
         out << to_string(this->bpm_) + "\n";
         for (int32_t n = 0; n <= this->last_note_; n++) {
             out << to_string(this->score_[n].note) + "\n";
+            out << to_string(this->score_[n].count) + "\n";
         }
         out.close();
         r = 0;
@@ -56,12 +57,14 @@ int32_t MidiScore::load(
             this->bpm_ = stoi(str);
             
             while (n < MIDI_SCORE_LENGTH) {
+                // first is midi note number
                 getline(in, str);
-                
                 if ('\0' == str[0]) break;
-                
                 this->score_[n].note = stoi(str);
-                this->score_[n].is_set = true;
+                // second is note count
+                getline(in, str);
+                if ('\0' == str[0]) break;
+                this->score_[n].count = stoi(str);
                 this->last_note_ = n++;
             }
         }
@@ -103,18 +106,18 @@ int32_t MidiScore::set_note(
      if (index > MIDI_SCORE_LENGTH) {
          return -1;
      }
-     
-     if (note > MIDI_NOTE_MAX) {
+     else if (note > MIDI_NOTE_MAX) {
          note = MIDI_NOTE_REST;
      }
      
+     this->mutex_.lock();
      if (((int32_t) index) > this->last_note_) {
          this->last_note_ = index;
      }
-     
-     this->mutex_.lock();
+     if (0 == this->score_[index].count) {
+         this->score_[index].count = 1;
+     }
      this->score_[index].note = note;
-     this->score_[index].is_set = true;
      this->mutex_.unlock();
      
      return 0;
@@ -129,9 +132,43 @@ int32_t MidiScore::get_note(
     }
     
     this->mutex_.lock();
-    note = (true == this->score_[index].is_set) ?
-           this->score_[index].note : 
-           MIDI_NOTE_REST;
+    note = this->score_[index].note;
+    this->mutex_.unlock();
+    
+    return 0;
+}
+
+int32_t MidiScore::set_count(
+    uint32_t index,
+    uint8_t count)
+{
+     if (index > MIDI_SCORE_LENGTH) {
+         return -1;
+     }
+     else if (0 == count) { 
+         count = 1;
+     }
+     
+     this->mutex_.lock();
+     if (((int32_t) index) > this->last_note_) {
+        this->last_note_ = index;
+     }
+     this->score_[index].count = count;
+     this->mutex_.unlock();
+     
+     return 0;
+}
+            
+int32_t MidiScore::get_count(
+    uint32_t index,
+    uint8_t& count)
+{
+    if (index > MIDI_SCORE_LENGTH) {
+        return -1;
+    }
+    
+    this->mutex_.lock();
+    count = this->score_[index].count;
     this->mutex_.unlock();
     
     return 0;
@@ -146,11 +183,11 @@ int32_t MidiScore::clear_note(
     
     this->mutex_.lock();
     this->score_[index].note = MIDI_NOTE_REST;
-    this->score_[index].is_set = false;
+    this->score_[index].count = 0;
     
     if (((int32_t) index) == this->last_note_) {
         for (int32_t n = (this->last_note_ - 1); n >= 0; n--) {
-            if (true == this->score_[n].is_set) {
+            if (0 != this->score_[n].count) {
                 this->last_note_ = n;
                 break;
             }
