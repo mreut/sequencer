@@ -14,6 +14,7 @@ MidiScore::MidiScore(
     for (uint32_t n = 0; n < MIDI_SCORE_LENGTH; n++) {
         this->score_[n].note = MIDI_NOTE_REST;
         this->score_[n].count = 0;
+        this->score_[n].type = COUNT_MULTIPLY;
     }
     this->bpm_ = 60;
     this->last_note_ = -1;
@@ -140,9 +141,13 @@ int32_t MidiScore::get_note(
 
 int32_t MidiScore::set_count(
     uint32_t index,
+    enum count_type type,
     uint8_t count)
 {
      if (index > MIDI_SCORE_LENGTH) {
+         return -1;
+     }
+     else if ((COUNT_DIVIDE != type) && (COUNT_MULTIPLY != type)) {
          return -1;
      }
      else if (0 == count) { 
@@ -154,6 +159,7 @@ int32_t MidiScore::set_count(
         this->last_note_ = index;
      }
      this->score_[index].count = count;
+     this->score_[index].type = type;
      this->mutex_.unlock();
      
      return 0;
@@ -161,6 +167,7 @@ int32_t MidiScore::set_count(
             
 int32_t MidiScore::get_count(
     uint32_t index,
+    enum count_type& type,
     uint8_t& count)
 {
     if (index > MIDI_SCORE_LENGTH) {
@@ -169,6 +176,10 @@ int32_t MidiScore::get_count(
     
     this->mutex_.lock();
     count = this->score_[index].count;
+    type = this->score_[index].type;
+    if ((COUNT_DIVIDE != type) && (COUNT_MULTIPLY != type)) {
+        type = COUNT_MULTIPLY;
+    }
     this->mutex_.unlock();
     
     return 0;

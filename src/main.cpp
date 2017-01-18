@@ -53,7 +53,7 @@ bool _is_play = false;
 /***** Local Functions *****/
 
 static int32_t _delay_ns(
-    uint32_t num_nanosecs)
+    uint64_t num_nanosecs)
 {
     struct timespec ts = {.tv_sec = 0, .tv_nsec = 0};
     
@@ -87,6 +87,7 @@ static int32_t _print_score(
     MidiScore& score,
     uint32_t index)
 {
+    enum count_type type;
     string str = "\0";
     int32_t row = 0;
     int32_t col = 0;
@@ -97,14 +98,19 @@ static int32_t _print_score(
         
         if (true != score.is_end(index)) {
             if ((0 != score.get_note(index, note)) ||
-                (0 != score.get_count(index++, count))) {
+                (0 != score.get_count(index++, type, count))) {
                 return -1;
             }
             else if (0 != note_to_ascii(note, str)) {
                 str = "";
             }
             else if (1 < count) {
-                str += "*" + to_string(count);
+                if (COUNT_DIVIDE == type) {
+                    str += "/" + to_string(count);
+                }
+                else if (COUNT_MULTIPLY == type) {
+                    str += "*" + to_string(count);
+                }
             }
             
             if (SPACES_PER_NOTE > str.length()) {
@@ -134,6 +140,7 @@ static int32_t _play_main(
     MidiScore& score,
     MidiOut& out)
 {
+    enum count_type type;
     string str = "";
     int32_t row = 0;
     int32_t col = 0;
@@ -141,28 +148,33 @@ static int32_t _play_main(
     uint8_t note = 0;
     uint8_t count = 0;
     uint16_t bpm = 0;
-    uint32_t delay = 0;
+    uint64_t delay = 0;
     
     while (true == _is_play) {
         score.get_bpm(bpm);
         delay = (uint32_t) ((60.0 / (double) bpm) * 1e9);
         
         if ((0 != score.get_note(index, note)) || 
-            (0 != score.get_count(index++, count))) {
+            (0 != score.get_count(index++, type, count))) {
             return -1;
         }
         else if (0 != note_to_ascii(note, str)) {
             return -1;
         }
         else if (1 < count) {
-            str += "*" + to_string(count);
+            if (COUNT_DIVIDE == type) {
+                str += "/" + to_string(count);
+                delay /= count;
+            }
+            else if (COUNT_MULTIPLY == type) {
+                str += "*" + to_string(count);
+                delay *= count;
+            }
         }
         
         ui.print(row, col, A_REVERSE | A_BLINK, str);
         if (MIDI_NOTE_REST != note) out.note_on(note, 100);
-        while ((true == _is_play) && (0 != count--)) {
-            _delay_ns(delay);
-        }
+        _delay_ns(delay);
         if (MIDI_NOTE_REST != note) out.note_off(note, 100);
         ui.print(row, col, A_NORMAL, str);
         
@@ -376,12 +388,20 @@ int main(
                     break;
                 
                 case (CMD_NOTE):
-                    r = entry.find("*");
-                    if ((r >= 2) && ((r + 1) < (int32_t) entry.length())) {
+                    if (((2 <= (r = entry.find("*")))) && 
+                        ((r + 1) < (int32_t) entry.length())) {
                         tmp = entry.substr(r + 1);
                         if (true == _is_number(tmp)) {
                             count = stoi(tmp);
-                            score.set_count(index, count);
+                            score.set_count(index, COUNT_MULTIPLY, count);
+                        }
+                    }
+                    else if (((2 <= (r = entry.find("/")))) && 
+                             ((r + 1) < (int32_t) entry.length())) {
+                        tmp = entry.substr(r + 1);
+                        if (true == _is_number(tmp)) {
+                            count = stoi(tmp);
+                            score.set_count(index, COUNT_DIVIDE, count);
                         }
                     }
                     if (0 == ascii_to_note(entry, note)) {

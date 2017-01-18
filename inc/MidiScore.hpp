@@ -22,11 +22,20 @@
 using namespace std;
 
 
+/***** Enums *****/
+
+enum count_type {
+    COUNT_MULTIPLY = 0,
+    COUNT_DIVIDE = 1,
+};
+
+
 /***** Structs *****/
 
 struct score_step {
     uint8_t note;
     uint32_t count;
+    enum count_type type;
 };
 
 
@@ -59,10 +68,12 @@ class MidiScore {
         
         int32_t set_count(
             uint32_t index,
+            enum count_type type,
             uint8_t count);
             
         int32_t get_count(
             uint32_t index,
+            enum count_type& type,
             uint8_t& count);
             
         int32_t clear_note(
