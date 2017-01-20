@@ -43,11 +43,24 @@ enum input_command {
 };
 
 
+/***** Structs *****/
+
+struct application_parameters {
+    MidiScore score;
+    MidiOut out;
+    UserInterface ui;
+    enum input_command cmd;
+    uint32_t display;
+    uint32_t index;
+    string entry;
+    thread play_thread;
+    bool is_ui_refresh;
+};
+
+
 /***** Local Variables *****/
 
-thread _play_thread;
-
-bool _is_play = false;
+static bool _is_play = false;
 
 
 /***** Local Functions *****/
@@ -82,64 +95,12 @@ static bool _is_number(
                    [](char c) { return !isdigit(c); }) == s.end();
 }
 
-static int32_t _print_score(
-    UserInterface& ui,
-    MidiScore& score,
-    uint32_t index)
-{
-    enum count_type type;
-    string str = "\0";
-    int32_t row = 0;
-    int32_t col = 0;
-    uint8_t note = 0;
-    uint8_t count = 0;
-    
-    while ((col <= ui.get_cols()) && (row <= (ui.get_rows() - 2))) {
-        
-        if (true != score.is_end(index)) {
-            if ((0 != score.get_note(index, note)) ||
-                (0 != score.get_count(index++, type, count))) {
-                return -1;
-            }
-            else if (0 != note_to_ascii(note, str)) {
-                str = "";
-            }
-            else if (1 < count) {
-                if (COUNT_DIVIDE == type) {
-                    str += "/" + to_string(count);
-                }
-                else if (COUNT_MULTIPLY == type) {
-                    str += "*" + to_string(count);
-                }
-            }
-            
-            if (SPACES_PER_NOTE > str.length()) {
-                str += string(SPACES_PER_NOTE - str.length(), ' ');
-            }
-        }
-        else {
-            str = string(SPACES_PER_NOTE, ' ');
-        }
-        
-        ui.print(row, col, A_NORMAL, str);
-    
-        if ((ui.get_cols() - (SPACES_PER_NOTE * 2)) <= col) {
-            col = 0;
-            row += 1;
-        }
-        else {
-            col += SPACES_PER_NOTE;
-        }
-    }
-    
-    return 0;
-}
-
 static int32_t _play_main(
     UserInterface& ui,
     MidiScore& score,
     MidiOut& out)
 {
+#if 0
     enum count_type type;
     string str = "";
     int32_t row = 0;
@@ -179,7 +140,7 @@ static int32_t _play_main(
         ui.print(row, col, A_NORMAL, str);
         
         if (true == score.is_end(index)) {
-            _print_score(ui, score, 0);
+            //_print_score(ui, score, 0);
             index = 0;
             col = 0;
             row = 0;
@@ -187,7 +148,7 @@ static int32_t _play_main(
         else {
             if (col >= (ui.get_cols() - (SPACES_PER_NOTE*2))) {
                 if (row >= (ui.get_rows() - 2)) {
-                    _print_score(ui, score, index);
+                    //_print_score(ui, score, index);
                     col = 0;
                     row = 0;
                 }
@@ -201,8 +162,292 @@ static int32_t _play_main(
             }
         }
     }
+#endif
+    return 0;
+}
+
+static int32_t _print_score(
+    struct application_parameters& app)
+{
+    enum count_type type;
+    string str = "";
+    int32_t row = 0;
+    int32_t col = 0;
+    uint8_t note = 0;
+    uint8_t count = 0;
+    uint32_t index = app.display;
+    
+    while ((col <= app.ui.get_cols()) && (row <= (app.ui.get_rows() - 2))) {
+        
+        if (true != app.score.is_end(index)) {
+            if ((0 != app.score.get_note(index, note)) ||
+                (0 != app.score.get_count(index++, type, count))) {
+                return -1;
+            }
+            else if (0 != note_to_ascii(note, str)) {
+                str = "";
+            }
+            else if (1 < count) {
+                if (COUNT_DIVIDE == type) {
+                    str += "/" + to_string(count);
+                }
+                else if (COUNT_MULTIPLY == type) {
+                    str += "*" + to_string(count);
+                }
+            }
+            
+            if (SPACES_PER_NOTE > str.length()) {
+                str += string(SPACES_PER_NOTE - str.length(), ' ');
+            }
+        }
+        else {
+            str = string(SPACES_PER_NOTE, ' ');
+        }
+        
+        app.ui.print(row, col, A_NORMAL, str);
+    
+        if ((app.ui.get_cols() - (SPACES_PER_NOTE * 2)) <= col) {
+            col = 0;
+            row += 1;
+        }
+        else {
+            col += SPACES_PER_NOTE;
+        }
+    }
     
     return 0;
+}
+
+static void _print_command_line(
+    struct application_parameters& app)
+{
+    string str = "";
+    string tmp = "";
+    uint16_t bpm = 0;
+    uint8_t note = 0;
+    
+    if (CMD_SAVE == app.cmd) {
+        str = "[SAVE]: " + app.entry;
+        str += string(SPACES_PER_DIALOG - str.length(), ' ');
+    }
+    else if (CMD_LOAD == app.cmd) {
+        str = "[LOAD]: " + app.entry;
+        str += string(SPACES_PER_DIALOG - str.length(), ' ');
+    }
+    else if (CMD_MOVE == app.cmd) {
+        str = "[MOVE]: " + app.entry;
+        str += string(SPACES_PER_DIALOG - str.length(), ' ');
+    }
+    else {
+        if (true == _is_play) str = "[*]  "; else str = "[ ]  ";
+        
+        if (CMD_BPM == app.cmd) {
+            str += "[BPM]: ";
+            str += app.entry;
+            str += string(SPACES_PER_PARAM - app.entry.length(), ' ');
+        }
+        else {
+            str += " BPM : ";
+            app.score.get_bpm(bpm);
+            str += to_string(bpm);
+            str += string(SPACES_PER_PARAM - tmp.length(), ' ');
+        }
+        
+        if (CMD_INDEX == app.cmd) {
+            str += "[INDEX]: ";
+            str += app.entry;
+            str += string(SPACES_PER_PARAM - app.entry.length(), ' ');
+        }
+        else {
+            str += " INDEX : ";
+            str += to_string(app.index);
+            str += string(SPACES_PER_PARAM - tmp.length(), ' ');
+        }
+        
+        if (CMD_NOTE == app.cmd) {
+            str += "[NOTE]: ";
+            str += app.entry;
+            str += string(SPACES_PER_PARAM - app.entry.length(), ' ');
+        }
+        else {
+            str += " NOTE : ";
+            app.score.get_note(app.index, note);
+            note_to_ascii(note, tmp);
+            str += tmp + string(SPACES_PER_PARAM - tmp.length(), ' ');
+        }
+    }
+    app.ui.print(app.ui.get_rows() - 1, 0, A_NORMAL, str);
+}
+
+static bool _score_add_entry(
+    MidiScore& score,
+    uint32_t index,
+    string entry)
+{
+    int32_t r = 0;
+    uint8_t note = 0;
+    uint8_t count = 0;
+    string tmp = "";
+    bool success = false;
+    
+    if (((2 <= (r = entry.find("*")))) && 
+        ((r + 1) < (int32_t) entry.length())) {
+        tmp = entry.substr(r + 1);
+        if (true == _is_number(tmp)) {
+            count = stoi(tmp);
+            score.set_count(index, COUNT_MULTIPLY, count);
+        }
+    }
+    else if (((2 <= (r = entry.find("/")))) && 
+             ((r + 1) < (int32_t) entry.length())) {
+        tmp = entry.substr(r + 1);
+        if (true == _is_number(tmp)) {
+            count = stoi(tmp);
+            score.set_count(index, COUNT_DIVIDE, count);
+        }
+    }
+    if (0 == ascii_to_note(entry, note)) {
+        score.set_note(index, note);
+        success = true;
+    }
+    
+    return success;
+}
+
+static void _handle_backspace(
+    struct application_parameters& app)
+{
+    if (0 < app.entry.length()) {
+        app.entry.pop_back();
+    }
+    else {
+        app.cmd = CMD_INVALID;
+    }
+}
+
+static void _handle_enter(
+    struct application_parameters& app)
+{
+    uint16_t bpm = 0;
+    
+    if (0 != app.entry.length()) {
+        switch (app.cmd) {
+        case (CMD_BPM):
+            if (_is_number(app.entry)) {
+                bpm = stoi(app.entry);
+                app.score.set_bpm(bpm);
+            }
+            break;
+        
+        case (CMD_INDEX):
+            if (_is_number(app.entry)) {
+                app.index = stoi(app.entry);
+            }
+            break;
+        
+        case (CMD_MOVE):
+            if (_is_number(app.entry)) {
+                app.display = stoi(app.entry);
+                app.is_ui_refresh = true;
+            }
+            break;
+        
+        case (CMD_NOTE):
+            if (_score_add_entry(app.score, app.index, app.entry)) {
+                app.index++;
+                app.is_ui_refresh = true;
+            }
+            break;
+        
+        case (CMD_SAVE):
+            app.score.save(app.entry);
+            app.is_ui_refresh = true;
+            break;
+        
+        case (CMD_LOAD):
+            app.score.load(app.entry);
+            app.is_ui_refresh = true;
+            break;
+        
+        case (CMD_DELETE):
+        case (CMD_PLAY):
+        case (CMD_QUIT):
+        case (CMD_INVALID):
+            // do nothing
+            break;
+        }
+    }
+    app.cmd = CMD_INVALID;
+    app.entry = "";
+}
+
+static void _handle_left(
+    struct application_parameters& app)
+{
+    uint16_t bpm = 0;
+    uint8_t note = 0;
+    string str = "";
+    
+    if (CMD_BPM == app.cmd) {
+        if (1 < bpm) {
+            app.score.get_bpm(bpm);
+            app.score.set_bpm(--bpm);
+        }
+        app.entry = to_string(bpm);
+    }
+    else if (CMD_INDEX == app.cmd) {
+        if (0 != app.index) app.index--;
+        app.entry = to_string(app.index);
+    }
+    else if (CMD_NOTE == app.cmd) {
+        app.score.get_note(app.index, note);
+        note = (MIDI_NOTE_REST == note) ? MIDI_NOTE_MAX : note - 1;
+        note_to_ascii(note, str);
+        app.entry = str;
+    }
+}
+
+static void _handle_right(
+    struct application_parameters& app)
+{
+    uint16_t bpm = 0;
+    uint8_t note = 0;
+    string str = "";
+    
+    if (CMD_BPM == app.cmd) {
+        if (1 < bpm) {
+            app.score.get_bpm(bpm);
+            app.score.set_bpm(++bpm);
+        }
+        app.entry = to_string(bpm);
+    }
+    else if (CMD_INDEX == app.cmd) {
+        if (MIDI_SCORE_LENGTH > app.index) app.index--;
+        app.entry = to_string(app.index);
+    }
+    else if (CMD_NOTE == app.cmd) {
+        app.score.get_note(app.index, note);
+        note = ((MIDI_NOTE_REST == note) || (MIDI_NOTE_MAX == note)) ?
+                MIDI_NOTE_REST : note + 1;
+        note_to_ascii(note, str);
+        app.entry = str;
+    }
+}
+
+static void _handle_character(
+    struct application_parameters& app,
+    uint8_t ch)
+{
+    if ((CMD_SAVE == app.cmd) || (CMD_LOAD == app.cmd)) {
+        if (SPACES_PER_DIALOG > app.entry.length()) {
+            app.entry += ch;
+        }
+    }
+    else {
+        if ((SPACES_PER_PARAM - 2) > app.entry.length()) {
+            app.entry += ch;
+        }
+    }
 }
 
 
@@ -212,255 +457,92 @@ int main(
     int argc,
     char* argv[])
 {
-    UserInterface ui;
-    MidiScore score;
-    MidiOut output;
-    enum input_command cmd = CMD_INVALID;
-    uint16_t index = 0;
-    uint16_t display = 0;
-    uint8_t note = 0;
-    uint8_t count = 0;
-    uint16_t bpm = 0;
+    struct application_parameters app;
     bool is_exit_requested = false;
-    bool is_refresh_needed = true;
-    string str = "";
-    string entry = "";
-    string tmp = "";
     int32_t in = 0;
     int32_t r = -1;
-
+    
+    app.index = 0;
+    app.display = 0;
+    app.is_ui_refresh = true;
+    app.cmd = CMD_INVALID;
+    
     if (!argv[1]) {
         goto main_exit;
     } 
-    else if (0 != output.open(argv[1])) {
+    else if (0 != app.out.open(argv[1])) {
         goto main_exit;
     }
 
-#if 0
-    score.set_note(0, 33);
-    score.set_note(1, 24);
-    score.set_note(2, 54);
-    score.set_note(3, 36);
-    score.set_note(4, 38);
-    score.set_note(5, 39);
-#endif
-
     while (false == is_exit_requested) {
         
-        if (true == is_refresh_needed) {
-            is_refresh_needed = false;
-            ui.clear();
-            _print_score(ui, score, display);
+        if (true == app.is_ui_refresh) {
+            app.is_ui_refresh = false;
+            app.ui.clear();
+            _print_score(app);
         }
         
-        if (CMD_SAVE == cmd) {
-            str = "[SAVE]: " + entry;
-            str += string(SPACES_PER_DIALOG - str.length(), ' ');
-        }
-        else if (CMD_LOAD == cmd) {
-            str = "[LOAD]: " + entry;
-            str += string(SPACES_PER_DIALOG - str.length(), ' ');
-        }
-        else if (CMD_MOVE == cmd) {
-            str = "[MOVE]: " + entry;
-            str += string(SPACES_PER_DIALOG - str.length(), ' ');
-        }
-        else {
-            if (true == _is_play) str = "[*]  "; else str = "[ ]  ";
-            
-            if (CMD_BPM == cmd) {
-                str += "[BPM]: ";
-                str += entry + string(SPACES_PER_PARAM - entry.length(), ' ');
-            }
-            else {
-                str += " BPM : ";
-                score.get_bpm(bpm);
-                tmp = to_string(bpm);
-                str += tmp + string(SPACES_PER_PARAM - tmp.length(), ' ');
-            }
-            
-            if (CMD_INDEX == cmd) {
-                str += "[INDEX]: ";
-                str += entry + string(SPACES_PER_PARAM - entry.length(), ' ');
-            }
-            else {
-                str += " INDEX : ";
-                tmp = to_string(index);
-                str += tmp + string(SPACES_PER_PARAM - tmp.length(), ' ');
-            }
-            
-            if (CMD_NOTE == cmd) {
-                str += "[NOTE]: ";
-                str += entry + string(SPACES_PER_PARAM - entry.length(), ' ');
-            }
-            else {
-                str += " NOTE : ";
-                score.get_note(index, note);
-                note_to_ascii(note, tmp);
-                str += tmp + string(SPACES_PER_PARAM - tmp.length(), ' ');
-            }
-        }
-        ui.print(ui.get_rows() - 1, 0, A_NORMAL, str);
+        _print_command_line(app);
         
-        if (0 != ui.get_input(in)) {
+        if (0 != app.ui.get_input(in)) {
             break;
         }
-        else if (CMD_INVALID == cmd) {
+        else if (CMD_INVALID == app.cmd) {
             switch (in) {
             case (CMD_SAVE):
             case (CMD_LOAD):
              case (CMD_MOVE):
-                is_refresh_needed = true;
+                app.is_ui_refresh = true;
                 // intentional fall through
                 
             case (CMD_BPM):
             case (CMD_INDEX):
             case (CMD_NOTE):
-                cmd = (enum input_command) in;
+                app.cmd = (enum input_command) in;
                 break;
             
             case (CMD_DELETE):
-                score.clear_note(index);
-                is_refresh_needed = true;
+                app.score.clear_note(app.index);
+                app.is_ui_refresh = true;
                 break;
                 
             case (CMD_PLAY):
                 if (true == _is_play) {
                     _is_play = false;
-                    _play_thread.join();
+                    app.play_thread.join();
                 }
                 else {
                     _is_play = true;
-                    _play_thread = thread(_play_main,
-                                          ref(ui),
-                                          ref(score),
-                                          ref(output));
+                    app.play_thread = thread(_play_main,
+                                             ref(app.ui),
+                                             ref(app.score),
+                                             ref(app.out));
                 }
                 break;
                 
             case (CMD_QUIT):
                 if (true == _is_play) {
                     _is_play = false;
-                    _play_thread.join();
+                    app.play_thread.join();
                 }
                 is_exit_requested = true;
                 break;
             }
         }
         else if (isprint(in)) {
-            if ((CMD_SAVE == cmd) || (CMD_LOAD == cmd)) {
-                if (SPACES_PER_DIALOG > entry.length()) entry += in;
-            }
-            else {
-                if ((SPACES_PER_PARAM - 2) > entry.length()) entry += in;
-            }
+            _handle_character(app, in);
         }
         else if (KEY_BACKSPACE == in) {
-            if (0 < entry.length()) {
-                entry.pop_back();
-            }
-            else {
-                cmd = CMD_INVALID;
-            }
+            _handle_backspace(app);
         }
         else if ((KEY_ENTER == in) || (10 == in)) {
-            if (0 != entry.length()) {
-                switch (cmd) {
-                case (CMD_BPM):
-                    if (true == _is_number(entry)) {
-                        bpm = stoi(entry);
-                        score.set_bpm(bpm);
-                    }
-                    break;
-                
-                case (CMD_INDEX):
-                    if (true == _is_number(entry)) {
-                        index = stoi(entry);
-                    }
-                    break;
-                
-                case (CMD_MOVE):
-                    if (true == _is_number(entry)) {
-                        display = stoi(entry);
-                        index = display;
-                        is_refresh_needed = true;
-                    }
-                    break;
-                
-                case (CMD_NOTE):
-                    if (((2 <= (r = entry.find("*")))) && 
-                        ((r + 1) < (int32_t) entry.length())) {
-                        tmp = entry.substr(r + 1);
-                        if (true == _is_number(tmp)) {
-                            count = stoi(tmp);
-                            score.set_count(index, COUNT_MULTIPLY, count);
-                        }
-                    }
-                    else if (((2 <= (r = entry.find("/")))) && 
-                             ((r + 1) < (int32_t) entry.length())) {
-                        tmp = entry.substr(r + 1);
-                        if (true == _is_number(tmp)) {
-                            count = stoi(tmp);
-                            score.set_count(index, COUNT_DIVIDE, count);
-                        }
-                    }
-                    if (0 == ascii_to_note(entry, note)) {
-                        score.set_note(index++, note);
-                        is_refresh_needed = true;
-                    }
-                    break;
-                
-                case (CMD_SAVE):
-                    score.save(entry);
-                    is_refresh_needed = true;
-                    break;
-                
-                case (CMD_LOAD):
-                    score.load(entry);
-                    is_refresh_needed = true;
-                    break;
-                
-                case (CMD_DELETE):
-                case (CMD_PLAY):
-                case (CMD_QUIT):
-                case (CMD_INVALID):
-                    // do nothing
-                    break;
-                }
-            }
-            cmd = CMD_INVALID;
-            entry = "";
+            _handle_enter(app);
         }
         else if (KEY_LEFT == in) {
-            if (CMD_BPM == cmd) {
-                if (1 < bpm) bpm--;
-                entry = to_string(bpm);
-            }
-            else if (CMD_INDEX == cmd) {
-                if (0 != index) index--;
-                entry = to_string(index);
-                is_refresh_needed = true;
-            }
-            else if (CMD_NOTE == cmd) {
-                if (MIDI_NOTE_REST == note) note = MIDI_NOTE_MAX;
-                else if (0 != note) note--;
-                note_to_ascii(note, entry);
-            }
+            _handle_left(app);
         }
         else if (KEY_RIGHT == in) {
-            if (CMD_BPM == cmd) {
-                if (UINT16_MAX > bpm) bpm++;
-                entry = to_string(bpm);
-            }
-            else if (CMD_INDEX == cmd) {
-                if (MIDI_SCORE_LENGTH > index) index++;
-                entry = to_string(index);
-                is_refresh_needed = true;
-            }
-            else if (CMD_NOTE == cmd) {
-                if (MIDI_NOTE_MAX > note) note++; else note = MIDI_NOTE_REST;
-                note_to_ascii(note, entry);
-            }
+            _handle_right(app);
         }
     }
     
