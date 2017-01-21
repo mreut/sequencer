@@ -95,79 +95,9 @@ static bool _is_number(
                    [](char c) { return !isdigit(c); }) == s.end();
 }
 
-static int32_t _play_main(
-    UserInterface& ui,
-    MidiScore& score,
-    MidiOut& out)
-{
-#if 0
-    enum count_type type;
-    string str = "";
-    int32_t row = 0;
-    int32_t col = 0;
-    uint32_t index = 0;
-    uint8_t note = 0;
-    uint8_t count = 0;
-    uint16_t bpm = 0;
-    uint64_t delay = 0;
-    
-    while (true == _is_play) {
-        score.get_bpm(bpm);
-        delay = (uint32_t) ((60.0 / (double) bpm) * 1e9);
-        
-        if ((0 != score.get_note(index, note)) || 
-            (0 != score.get_count(index++, type, count))) {
-            return -1;
-        }
-        else if (0 != note_to_ascii(note, str)) {
-            return -1;
-        }
-        else if (1 < count) {
-            if (COUNT_DIVIDE == type) {
-                str += "/" + to_string(count);
-                delay /= count;
-            }
-            else if (COUNT_MULTIPLY == type) {
-                str += "*" + to_string(count);
-                delay *= count;
-            }
-        }
-        
-        ui.print(row, col, A_REVERSE | A_BLINK, str);
-        if (MIDI_NOTE_REST != note) out.note_on(note, 100);
-        _delay_ns(delay);
-        if (MIDI_NOTE_REST != note) out.note_off(note, 100);
-        ui.print(row, col, A_NORMAL, str);
-        
-        if (true == score.is_end(index)) {
-            //_print_score(ui, score, 0);
-            index = 0;
-            col = 0;
-            row = 0;
-        }
-        else {
-            if (col >= (ui.get_cols() - (SPACES_PER_NOTE*2))) {
-                if (row >= (ui.get_rows() - 2)) {
-                    //_print_score(ui, score, index);
-                    col = 0;
-                    row = 0;
-                }
-                else {
-                    col = 0;
-                    row += 1;
-                }
-            }
-            else {
-                col += SPACES_PER_NOTE;
-            }
-        }
-    }
-#endif
-    return 0;
-}
-
 static int32_t _print_score(
-    struct application_parameters& app)
+    struct application_parameters& app,
+    uint32_t offset)
 {
     enum count_type type;
     string str = "";
@@ -175,7 +105,7 @@ static int32_t _print_score(
     int32_t col = 0;
     uint8_t note = 0;
     uint8_t count = 0;
-    uint32_t index = app.display;
+    uint32_t index = offset;
     
     while ((col <= app.ui.get_cols()) && (row <= (app.ui.get_rows() - 2))) {
         
@@ -221,10 +151,12 @@ static int32_t _print_score(
 static void _print_command_line(
     struct application_parameters& app)
 {
+    enum count_type type;
     string str = "";
     string tmp = "";
     uint16_t bpm = 0;
     uint8_t note = 0;
+    uint8_t count = 0;
     
     if (CMD_SAVE == app.cmd) {
         str = "[SAVE]: " + app.entry;
@@ -272,8 +204,16 @@ static void _print_command_line(
         else {
             str += " NOTE : ";
             app.score.get_note(app.index, note);
+            app.score.get_count(app.index, type, count);
             note_to_ascii(note, tmp);
-            str += tmp + string(SPACES_PER_PARAM - tmp.length(), ' ');
+            if (1 < count) {
+                tmp += (COUNT_DIVIDE == type) ? "/" :
+                       (COUNT_MULTIPLY == type) ? "*" :
+                       "?";
+                tmp += to_string(count);
+            }
+            str += tmp;
+            str += string(SPACES_PER_PARAM - tmp.length(), ' ');
         }
     }
     app.ui.print(app.ui.get_rows() - 1, 0, A_NORMAL, str);
@@ -348,6 +288,7 @@ static void _handle_enter(
         case (CMD_MOVE):
             if (_is_number(app.entry)) {
                 app.display = stoi(app.entry);
+                app.index = app.display;
                 app.is_ui_refresh = true;
             }
             break;
@@ -389,10 +330,8 @@ static void _handle_left(
     string str = "";
     
     if (CMD_BPM == app.cmd) {
-        if (1 < bpm) {
-            app.score.get_bpm(bpm);
-            app.score.set_bpm(--bpm);
-        }
+        app.score.get_bpm(bpm);
+        if (1 < bpm) app.score.set_bpm(--bpm);
         app.entry = to_string(bpm);
     }
     else if (CMD_INDEX == app.cmd) {
@@ -415,14 +354,12 @@ static void _handle_right(
     string str = "";
     
     if (CMD_BPM == app.cmd) {
-        if (1 < bpm) {
-            app.score.get_bpm(bpm);
-            app.score.set_bpm(++bpm);
-        }
+        app.score.get_bpm(bpm);
+        if (UINT16_MAX > bpm) app.score.set_bpm(++bpm);
         app.entry = to_string(bpm);
     }
     else if (CMD_INDEX == app.cmd) {
-        if (MIDI_SCORE_LENGTH > app.index) app.index--;
+        if (MIDI_SCORE_LENGTH > app.index) app.index++;
         app.entry = to_string(app.index);
     }
     else if (CMD_NOTE == app.cmd) {
@@ -443,11 +380,83 @@ static void _handle_character(
             app.entry += ch;
         }
     }
+    else if ((CMD_BPM == app.cmd) || (CMD_INDEX == app.cmd)) {
+        // filter out non-numeric characters
+        if ((isdigit(ch)) && ((SPACES_PER_PARAM - 2) > app.entry.length())) {
+            app.entry += ch;
+        }
+    }
     else {
         if ((SPACES_PER_PARAM - 2) > app.entry.length()) {
             app.entry += ch;
         }
     }
+}
+
+static int32_t _play_main(
+    struct application_parameters& app)
+{
+    enum count_type type;
+    string str = "";
+    int32_t row = 0;
+    int32_t col = 0;
+    uint32_t index = 0;
+    uint8_t note = 0;
+    uint8_t count = 0;
+    uint16_t bpm = 0;
+    uint64_t delay = 0;
+    
+    while (true == _is_play) {
+        app.score.get_bpm(bpm);
+        delay = (uint32_t) ((60.0 / (double) bpm) * 1e9);
+        
+        if ((0 != app.score.get_note(index, note)) || 
+            (0 != app.score.get_count(index++, type, count))) {
+            return -1;
+        }
+        else if (0 != note_to_ascii(note, str)) {
+            return -1;
+        }
+        else if (1 < count) {
+            if (COUNT_DIVIDE == type) {
+                str += "/" + to_string(count);
+                delay /= count;
+            }
+            else if (COUNT_MULTIPLY == type) {
+                str += "*" + to_string(count);
+                delay *= count;
+            }
+        }
+        
+        app.ui.print(row, col, A_REVERSE | A_BLINK, str);
+        if (MIDI_NOTE_REST != note) app.out.note_on(note, 100);
+        _delay_ns(delay);
+        if (MIDI_NOTE_REST != note) app.out.note_off(note, 100);
+        app.ui.print(row, col, A_NORMAL, str);
+        
+        if (true == app.score.is_end(index)) {
+            _print_score(app, 0);
+            index = 0;
+            col = 0;
+            row = 0;
+        }
+        else if (col >= (app.ui.get_cols() - (SPACES_PER_NOTE*2))) {
+            if (row >= (app.ui.get_rows() - 2)) {
+                _print_score(app, index);
+                col = 0;
+                row = 0;
+            }
+            else {
+                col = 0;
+                row += 1;
+            }
+        }
+        else {
+            col += SPACES_PER_NOTE;
+        }
+    }
+    
+    return 0;
 }
 
 
@@ -479,7 +488,7 @@ int main(
         if (true == app.is_ui_refresh) {
             app.is_ui_refresh = false;
             app.ui.clear();
-            _print_score(app);
+            _print_score(app, app.display);
         }
         
         _print_command_line(app);
@@ -513,10 +522,7 @@ int main(
                 }
                 else {
                     _is_play = true;
-                    app.play_thread = thread(_play_main,
-                                             ref(app.ui),
-                                             ref(app.score),
-                                             ref(app.out));
+                    app.play_thread = thread(_play_main, ref(app));
                 }
                 break;
                 
