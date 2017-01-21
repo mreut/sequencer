@@ -20,6 +20,7 @@
 #define SPACES_PER_PARAM 10
 #define SPACES_PER_NOTE 10
 #define SPACES_PER_DIALOG 32
+#define DISPLAY_START_ROW 2
 
 
 /***** Namespace *****/
@@ -39,6 +40,7 @@ enum input_command {
     CMD_NOTE = 'N',
     CMD_PLAY = 'P',
     CMD_QUIT = 'Q',
+    CMD_REPEAT = 'R',
     CMD_SAVE = 'S',
 };
 
@@ -102,14 +104,23 @@ static int32_t _print_score(
     enum count_type type;
     string str = "";
     string line = "";
-    int32_t row = 0;
-    int32_t col = 0;
+    uint32_t row = DISPLAY_START_ROW;
+    uint32_t col = 0;
     uint8_t note = 0;
     uint8_t count = 0;
     uint32_t index = offset;
     uint32_t max_line_len = app.ui.get_cols() - SPACES_PER_NOTE;
+    uint32_t max_col = app.ui.get_cols();
+    uint32_t max_row = app.ui.get_rows() - 3;
     
-    while ((col <= app.ui.get_cols()) && (row <= (app.ui.get_rows() - 2))) {
+    app.score.get_repeat(count);
+    str = "0:" + to_string(count) + " ";
+    app.ui.print(0, 0, A_NORMAL, str);
+    str = string(max_line_len, '=');
+    app.ui.print(1, 0, A_NORMAL, str);
+    app.ui.print(max_row + 1, 0, A_NORMAL, str);
+    
+    while ((col <= max_col) && (row <= max_row)) {
         
         if (true != app.score.is_end(index)) {
             // grab the next note
@@ -157,20 +168,25 @@ static void _print_command_line(
     string str = "";
     string tmp = "";
     uint16_t bpm = 0;
+    uint16_t repeat = 0;
     uint8_t note = 0;
     uint8_t count = 0;
     
     if (CMD_SAVE == app.cmd) {
         str = "[SAVE]: " + app.entry;
-        str += string(SPACES_PER_DIALOG - str.length(), ' ');
+        str += string(app.ui.get_cols() - str.length(), ' ');
     }
     else if (CMD_LOAD == app.cmd) {
         str = "[LOAD]: " + app.entry;
-        str += string(SPACES_PER_DIALOG - str.length(), ' ');
+        str += string(app.ui.get_cols() - str.length(), ' ');
     }
     else if (CMD_MOVE == app.cmd) {
         str = "[MOVE]: " + app.entry;
-        str += string(SPACES_PER_DIALOG - str.length(), ' ');
+        str += string(app.ui.get_cols() - str.length(), ' ');
+    }
+    else if (CMD_REPEAT == app.cmd) {
+        str = "[REPEAT]: " + app.entry;
+        str += string(app.ui.get_cols() - str.length(), ' ');
     }
     else {
         if (true == _is_play) str = "[*]  "; else str = "[ ]  ";
@@ -295,6 +311,13 @@ static void _handle_enter(
             }
             break;
         
+        case (CMD_REPEAT):
+            if (_is_number(app.entry)) {
+                app.score.set_repeat(stoi(app.entry));
+                app.is_ui_refresh = true;
+            }
+            break;
+        
         case (CMD_NOTE):
             if (_score_add_entry(app.score, app.index, app.entry)) {
                 app.index++;
@@ -400,16 +423,27 @@ static int32_t _play_main(
 {
     enum count_type type;
     string str = "";
-    int32_t row = 0;
-    int32_t col = 0;
+    uint32_t max_col = 0;
+    uint32_t max_row = 0;
+    uint32_t row = DISPLAY_START_ROW;
+    uint32_t col = 0;
     uint32_t index = 0;
     uint8_t note = 0;
     uint8_t count = 0;
     uint16_t bpm = 0;
+    uint8_t repeat = 0;
+    uint8_t iter = 0;
     uint64_t delay = 0;
+
+    app.score.get_repeat(repeat);
+    str = to_string(iter) + ":" + to_string(repeat) + " ";
+    app.ui.print(0, 0, A_NORMAL, str);
     
     while (true == _is_play) {
         app.score.get_bpm(bpm);
+        app.score.get_repeat(repeat);
+        max_col = app.ui.get_cols() - SPACES_PER_NOTE;
+        max_row = app.ui.get_rows() - 3;
         delay = (uint32_t) ((60.0 / (double) bpm) * 1e9);
         
         if ((0 != app.score.get_note(index, note)) || 
@@ -438,15 +472,18 @@ static int32_t _play_main(
         
         if (true == app.score.is_end(index)) {
             _print_score(app, 0);
+            iter = (repeat <= iter) ? 0 : iter + 1;
+            str = to_string(iter) + ":" + to_string(repeat) + " ";
+            app.ui.print(0, 0, A_NORMAL, str);
             index = 0;
             col = 0;
-            row = 0;
+            row = DISPLAY_START_ROW;
         }
-        else if (col >= (app.ui.get_cols() - (SPACES_PER_NOTE*2))) {
-            if (row >= (app.ui.get_rows() - 2)) {
+        else if (col >= max_col) {
+            if (row >= max_row) {
                 _print_score(app, index);
                 col = 0;
-                row = 0;
+                row = DISPLAY_START_ROW;
             }
             else {
                 col = 0;
@@ -507,6 +544,7 @@ int main(
                 // intentional fall through
                 
             case (CMD_BPM):
+            case (CMD_REPEAT):
             case (CMD_INDEX):
             case (CMD_NOTE):
                 app.cmd = (enum input_command) in;
@@ -521,6 +559,7 @@ int main(
                 if (true == _is_play) {
                     _is_play = false;
                     app.play_thread.join();
+                    app.is_ui_refresh = true;
                 }
                 else {
                     _is_play = true;

@@ -17,6 +17,7 @@ MidiScore::MidiScore(
         this->score_[n].type = COUNT_MULTIPLY;
     }
     this->bpm_ = 60;
+    this->repeat_ = 0;
     this->last_note_ = -1;
 }
 
@@ -109,7 +110,26 @@ int32_t MidiScore::get_bpm(
     return 0;
 }
 
-        
+int32_t MidiScore::set_repeat(
+    uint8_t repeat)
+{
+    this->mutex_.lock();
+    this->repeat_ = repeat;
+    this->mutex_.unlock();
+    
+    return 0;
+}
+
+int32_t MidiScore::get_repeat(
+    uint8_t& repeat)
+{
+    this->mutex_.lock();
+    repeat = this->repeat_;
+    this->mutex_.unlock();
+    
+    return 0;
+}
+
 int32_t MidiScore::set_note(
     uint32_t index,
     uint8_t note)

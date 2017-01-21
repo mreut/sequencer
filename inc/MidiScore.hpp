@@ -58,6 +58,12 @@ class MidiScore {
         int32_t get_bpm(
             uint16_t& bpm);
         
+        int32_t set_repeat(
+            uint8_t repeat);
+        
+        int32_t get_repeat(
+            uint8_t& repeat);
+        
         int32_t set_note(
             uint32_t index,
             uint8_t note);
@@ -86,6 +92,8 @@ class MidiScore {
         struct score_step score_[MIDI_SCORE_LENGTH];
         
         uint16_t bpm_;
+        
+        uint8_t repeat_;
         
         int32_t last_note_;
         
