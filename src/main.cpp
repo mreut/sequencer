@@ -101,23 +101,25 @@ static int32_t _print_score(
 {
     enum count_type type;
     string str = "";
+    string line = "";
     int32_t row = 0;
     int32_t col = 0;
     uint8_t note = 0;
     uint8_t count = 0;
     uint32_t index = offset;
+    uint32_t max_line_len = app.ui.get_cols() - SPACES_PER_NOTE;
     
     while ((col <= app.ui.get_cols()) && (row <= (app.ui.get_rows() - 2))) {
         
         if (true != app.score.is_end(index)) {
+            // grab the next note
             if ((0 != app.score.get_note(index, note)) ||
-                (0 != app.score.get_count(index++, type, count))) {
+                (0 != app.score.get_count(index++, type, count)) ||
+                (0 != note_to_ascii(note, str))) {
                 return -1;
             }
-            else if (0 != note_to_ascii(note, str)) {
-                str = "";
-            }
             else if (1 < count) {
+                // altered count
                 if (COUNT_DIVIDE == type) {
                     str += "/" + to_string(count);
                 }
@@ -125,23 +127,23 @@ static int32_t _print_score(
                     str += "*" + to_string(count);
                 }
             }
-            
+            // pad with spaces to fully erase previous
             if (SPACES_PER_NOTE > str.length()) {
                 str += string(SPACES_PER_NOTE - str.length(), ' ');
             }
         }
         else {
+            // pad with spaces to fully erase previous
             str = string(SPACES_PER_NOTE, ' ');
         }
         
-        app.ui.print(row, col, A_NORMAL, str);
-    
-        if ((app.ui.get_cols() - (SPACES_PER_NOTE * 2)) <= col) {
-            col = 0;
+        line += str;
+        
+        if (max_line_len <= line.length()) {
+            // print the current row
+            app.ui.print(row, 0, A_NORMAL, line);
+            line = "";
             row += 1;
-        }
-        else {
-            col += SPACES_PER_NOTE;
         }
     }
     

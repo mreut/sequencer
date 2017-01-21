@@ -32,6 +32,8 @@ int32_t MidiScore::save(
         for (int32_t n = 0; n <= this->last_note_; n++) {
             out << to_string(this->score_[n].note) + "\n";
             out << to_string(this->score_[n].count) + "\n";
+            out << to_string(this->score_[n].type) + "\n";
+            out << to_string(this->score_[n].count) + "\n";
         }
         out.close();
         r = 0;
@@ -67,6 +69,14 @@ int32_t MidiScore::load(
                 if ('\0' == str[0]) break;
                 this->score_[n].count = stoi(str);
                 this->last_note_ = n++;
+                // third is type
+                getline(in, str);
+                if ('\0' == str[0]) break;
+                this->score_[n].type = (enum count_type) stoi(str);
+                // fourth is count
+                getline(in, str);
+                if ('\0' == str[0]) break;
+                this->score_[n].count = stoi(str);
             }
         }
         r = 0;
