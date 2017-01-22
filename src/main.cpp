@@ -2,10 +2,6 @@
 
 #include <ncurses.h>
 #include <cstdint>
-#include <cctype>
-#include <ctime>
-#include <cerrno>
-#include <algorithm> 
 #include <functional>
 #include <list>
 #include <string>
@@ -14,6 +10,7 @@
 #include "MidiOut.hpp"
 #include "MidiScore.hpp"
 #include "UserInterface.hpp"
+#include "utility.hpp"
 
 
 /***** Defines *****/
@@ -68,34 +65,20 @@ static bool _is_play = false;
 
 /***** Local Functions *****/
 
-static int32_t _delay_ns(
-    uint64_t num_nanosecs)
+static void _print_frame(
+    struct application_parameters& app)
 {
-    struct timespec ts = {.tv_sec = 0, .tv_nsec = 0};
+    const uint32_t max_line_len = app.ui.get_cols() - SPACES_PER_NOTE;
+    const uint32_t max_row = app.ui.get_rows() - 3;
+    string str = "";
+    uint8_t tmp = 0;
     
-    while (num_nanosecs >= 1e9) {
-        num_nanosecs -= 1e9;
-        ts.tv_sec += 1;
-    }
-    ts.tv_nsec = num_nanosecs;
-    
-    while (nanosleep(&ts, &ts) == -1) {
-        if ( (errno == ENOSYS) || (errno == EINVAL)) {
-            fprintf(stderr, "Error: nanosleep failed\r\n");
-            return -1;
-        }
-    }
-    
-    return 0;
-}
-
-static bool _is_number(
-    string& s)
-{
-    return !s.empty() && 
-           find_if(s.begin(),
-                   s.end(),
-                   [](char c) { return !isdigit(c); }) == s.end();
+    app.score.get_repeat(tmp);
+    str = "0:" + to_string(tmp) + " ";
+    app.ui.print(0, 0, A_NORMAL, str);
+    str = string(max_line_len, '=');
+    app.ui.print(1, 0, A_NORMAL, str);
+    app.ui.print(max_row + 1, 0, A_NORMAL, str);
 }
 
 static int32_t _print_score(
@@ -103,44 +86,25 @@ static int32_t _print_score(
     uint32_t offset)
 {
     const uint32_t max_line_len = app.ui.get_cols() - SPACES_PER_NOTE;
-    const uint32_t max_col = app.ui.get_cols();
     const uint32_t max_row = app.ui.get_rows() - 3;
-    
+    uint32_t row = DISPLAY_START_ROW;
     enum count_type type;
     string str = "";
     string line = "";
-    uint32_t row = DISPLAY_START_ROW;
-    uint32_t col = 0;
     uint8_t note = 0;
     uint8_t count = 0;
-
-    app.score.get_repeat(count);
-    str = "0:" + to_string(count) + " ";
-    app.ui.print(0, 0, A_NORMAL, str);
-    str = string(max_line_len, '=');
-    app.ui.print(1, 0, A_NORMAL, str);
-    app.ui.print(max_row + 1, 0, A_NORMAL, str);
     
-    while ((col <= max_col) && (row <= max_row)) {
-        
+    _print_frame(app);
+    
+    while (row <= max_row) {
         if (true != app.score.is_end(offset)) {
             // grab the next note
-            if ((0 != app.score.get_note(offset, note)) ||
-                (0 != app.score.get_count(offset++, type, count)) ||
-                (0 != note_to_ascii(note, str))) {
+            if ((0 != app.score.get_note_count(offset++, note, type, count)) ||
+                (!note_count_to_ascii(note, type, count, str))) {
                 return -1;
             }
-            else if (1 < count) {
-                // altered count
-                if (COUNT_DIVIDE == type) {
-                    str += "/" + to_string(count);
-                }
-                else if (COUNT_MULTIPLY == type) {
-                    str += "*" + to_string(count);
-                }
-            }
-            // pad with spaces to fully erase previous
-            if (SPACES_PER_NOTE > str.length()) {
+            else if (SPACES_PER_NOTE > str.length()) {
+                // pad with spaces to fully erase previous
                 str += string(SPACES_PER_NOTE - str.length(), ' ');
             }
         }
@@ -238,41 +202,6 @@ static void _print_command_line(
     app.ui.print(app.ui.get_rows() - 1, 0, A_NORMAL, str);
 }
 
-static bool _score_add_entry(
-    MidiScore& score,
-    uint32_t index,
-    string entry)
-{
-    int32_t r = 0;
-    uint8_t note = 0;
-    uint8_t count = 0;
-    string tmp = "";
-    bool success = false;
-    
-    if (((2 <= (r = entry.find("*")))) && 
-        ((r + 1) < (int32_t) entry.length())) {
-        tmp = entry.substr(r + 1);
-        if (true == _is_number(tmp)) {
-            count = stoi(tmp);
-            score.set_count(index, COUNT_MULTIPLY, count);
-        }
-    }
-    else if (((2 <= (r = entry.find("/")))) && 
-             ((r + 1) < (int32_t) entry.length())) {
-        tmp = entry.substr(r + 1);
-        if (true == _is_number(tmp)) {
-            count = stoi(tmp);
-            score.set_count(index, COUNT_DIVIDE, count);
-        }
-    }
-    if (0 == ascii_to_note(entry, note)) {
-        score.set_note(index, note);
-        success = true;
-    }
-    
-    return success;
-}
-
 static void _handle_backspace(
     struct application_parameters& app)
 {
@@ -287,25 +216,28 @@ static void _handle_backspace(
 static void _handle_enter(
     struct application_parameters& app)
 {
+    enum count_type type;
     uint16_t bpm = 0;
+    uint8_t note = 0;
+    uint8_t count = 0;
     
     if (0 != app.entry.length()) {
         switch (app.cmd) {
         case (CMD_BPM):
-            if (_is_number(app.entry)) {
+            if (is_number(app.entry)) {
                 bpm = stoi(app.entry);
                 app.score.set_bpm(bpm);
             }
             break;
         
         case (CMD_INDEX):
-            if (_is_number(app.entry)) {
+            if (is_number(app.entry)) {
                 app.index = stoi(app.entry);
             }
             break;
         
         case (CMD_MOVE):
-            if (_is_number(app.entry)) {
+            if (is_number(app.entry)) {
                 app.display = stoi(app.entry);
                 app.index = app.display;
                 app.is_ui_refresh = true;
@@ -313,15 +245,15 @@ static void _handle_enter(
             break;
         
         case (CMD_REPEAT):
-            if (_is_number(app.entry)) {
+            if (is_number(app.entry)) {
                 app.score.set_repeat(stoi(app.entry));
                 app.is_ui_refresh = true;
             }
             break;
         
         case (CMD_NOTE):
-            if (_score_add_entry(app.score, app.index, app.entry)) {
-                app.index++;
+            if (ascii_to_note_count(app.entry, note, type, count)) {
+                app.score.set_note_count(app.index++, note, type, count);
                 app.is_ui_refresh = true;
             }
             break;
@@ -445,29 +377,18 @@ static int32_t _play_main(
         app.score.get_repeat(repeat);
         max_col = app.ui.get_cols() - SPACES_PER_NOTE;
         max_row = app.ui.get_rows() - 3;
-        delay = (uint32_t) ((60.0 / (double) bpm) * 1e9);
         
-        if ((0 != app.score.get_note(index, note)) || 
-            (0 != app.score.get_count(index++, type, count))) {
+        if ((0 != app.score.get_note_count(index++, note, type, count)) || 
+            (!note_count_to_ascii(note, type, count, str))) {
             return -1;
         }
-        else if (0 != note_to_ascii(note, str)) {
-            return -1;
-        }
-        else if (1 < count) {
-            if (COUNT_DIVIDE == type) {
-                str += "/" + to_string(count);
-                delay /= count;
-            }
-            else if (COUNT_MULTIPLY == type) {
-                str += "*" + to_string(count);
-                delay *= count;
-            }
-        }
+        
+        delay = (uint32_t) ((60.0 / (double) bpm) * 1e9);
+        delay = (COUNT_DIVIDE == type) ? delay / count : delay * count;
         
         app.ui.print(row, col, A_REVERSE | A_BLINK, str);
         if (MIDI_NOTE_REST != note) app.out.note_on(note, 100);
-        _delay_ns(delay);
+        delay_ns(delay);
         if (MIDI_NOTE_REST != note) app.out.note_off(note, 100);
         app.ui.print(row, col, A_NORMAL, str);
         

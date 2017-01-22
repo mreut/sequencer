@@ -4,6 +4,7 @@
 #include <fstream>
 
 #include "MidiScore.hpp"
+#include "utility.hpp"
 
 
 /***** Class Methods *****/
@@ -215,6 +216,38 @@ int32_t MidiScore::get_count(
     return 0;
 }
 
+int32_t MidiScore::set_note_count(
+            uint32_t index,
+            uint8_t note,
+            enum count_type type,
+            uint8_t count)
+{
+    if (0 != this->set_note(index, note)) {
+        return -1;
+    }
+    else if (0 != this->set_count(index, type, count)) {
+        return -1;
+    }
+    
+    return 0;
+}
+
+int32_t MidiScore::get_note_count(
+            uint32_t index,
+            uint8_t& note,
+            enum count_type& type,
+            uint8_t& count)
+{
+    if (0 != this->get_note(index, note)) {
+        return -1;
+    }
+    else if (0 != this->get_count(index, type, count)) {
+        return -1;
+    }
+    
+    return 0;
+}
+
 int32_t MidiScore::clear_note(
     uint32_t index)
 {
@@ -257,13 +290,13 @@ bool MidiScore::is_end(
 
 /***** Global Functions *****/
 
-int32_t ascii_to_note(
+bool ascii_to_note(
     string& ascii,
     uint8_t& note)
 {
     uint8_t tmp = 0;
     uint8_t octave = 0;
-    int32_t r = 0;
+    bool success = true;
     
     if ('-' == ascii[0]) {
         note = MIDI_NOTE_REST;
@@ -292,10 +325,10 @@ int32_t ascii_to_note(
             tmp = 7;
             break;
         default:
-            r = -1;
+            success = false;
         }
         
-        if (0 == r) {
+        if (success) {
             if (isdigit(ascii[1])) {
                 if (isdigit(ascii[2])) {
                     octave = 10;
@@ -311,20 +344,66 @@ int32_t ascii_to_note(
                 note = tmp;
             }
             else {
-                r = -1;
+                success = false;
             }
         }
     }
     
-    return r;
+    return success;
 }
 
-int32_t note_to_ascii(
+bool ascii_to_note_count(
+    string& ascii,
+    uint8_t& note,
+    enum count_type& type,
+    uint8_t& count)
+{
+    int32_t r = 0;
+    string tmp = "";
+    
+    if (((2 <= (r = ascii.find("*")))) && 
+        ((r + 1) < (int32_t) ascii.length())) {
+        tmp = ascii.substr(r + 1);
+        if (true == is_number(tmp)) {
+            count = stoi(tmp);
+            type = COUNT_MULTIPLY;
+            tmp = ascii.substr(0, ascii.length() - r);
+        }
+        else {
+            return false;
+        }
+    }
+    else if (((2 <= (r = ascii.find("/")))) && 
+             ((r + 1) < (int32_t) ascii.length())) {
+        tmp = ascii.substr(r + 1);
+        if (true == is_number(tmp)) {
+            count = stoi(tmp);
+            type = COUNT_DIVIDE;
+            tmp = ascii.substr(0, ascii.length() - r);
+        }
+        else {
+            return false;
+        }
+    }
+    else {
+        count = 1;
+        type = COUNT_MULTIPLY;
+        tmp = ascii;
+    }
+    
+    if (!ascii_to_note(tmp, note)) {
+        return false;
+    }
+    
+    return true;
+}
+
+bool note_to_ascii(
     uint8_t note,
     string& ascii)
 {
     int32_t octave = 0;
-    int32_t r = 0;
+    bool success = true;
     bool is_sharp = false;
 
     if (note == MIDI_NOTE_REST) {
@@ -404,8 +483,33 @@ int32_t note_to_ascii(
         }
     }
     else {
-        r = -1;
+        success = false;
     }
     
-    return r;
+    return success;
+}
+
+bool note_count_to_ascii(
+    uint8_t note,
+    enum count_type type,
+    uint8_t count,
+    string& ascii)
+{
+    if (!note_to_ascii(note, ascii)) {
+        return false;
+    }
+    else if (1 < count) {
+        // altered count
+        if (COUNT_DIVIDE == type) {
+            ascii += "/" + to_string(count);
+        }
+        else if (COUNT_MULTIPLY == type) {
+            ascii += "*" + to_string(count);
+        }
+        else {
+            return false;
+        }
+    }
+    
+    return true;
 }

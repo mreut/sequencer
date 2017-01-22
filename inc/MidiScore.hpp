@@ -81,6 +81,18 @@ class MidiScore {
             uint32_t index,
             enum count_type& type,
             uint8_t& count);
+        
+        int32_t set_note_count(
+                    uint32_t index,
+                    uint8_t note,
+                    enum count_type type,
+                    uint8_t count);
+        
+        int32_t get_note_count(
+            uint32_t index,
+            uint8_t& note,
+            enum count_type& type,
+            uint8_t& count);
             
         int32_t clear_note(
             uint32_t index);
@@ -103,12 +115,24 @@ class MidiScore {
 
 /***** Global Functions *****/
 
-extern int32_t ascii_to_note(
+extern bool ascii_to_note(
     string& ascii,
     uint8_t& note);
 
-extern int32_t note_to_ascii(
+extern bool ascii_to_note_count(
+    string& ascii,
+    uint8_t& note,
+    enum count_type& type,
+    uint8_t& count);
+
+extern bool note_to_ascii(
     uint8_t note,
+    string& ascii);
+
+extern bool note_count_to_ascii(
+    uint8_t note,
+    enum count_type type,
+    uint8_t count,
     string& ascii);
 
 #endif
