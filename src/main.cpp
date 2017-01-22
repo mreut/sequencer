@@ -7,6 +7,7 @@
 #include <cerrno>
 #include <algorithm> 
 #include <functional>
+#include <list>
 #include <string>
 #include <thread>
 
@@ -101,6 +102,10 @@ static int32_t _print_score(
     struct application_parameters& app,
     uint32_t offset)
 {
+    const uint32_t max_line_len = app.ui.get_cols() - SPACES_PER_NOTE;
+    const uint32_t max_col = app.ui.get_cols();
+    const uint32_t max_row = app.ui.get_rows() - 3;
+    
     enum count_type type;
     string str = "";
     string line = "";
@@ -108,11 +113,7 @@ static int32_t _print_score(
     uint32_t col = 0;
     uint8_t note = 0;
     uint8_t count = 0;
-    uint32_t index = offset;
-    uint32_t max_line_len = app.ui.get_cols() - SPACES_PER_NOTE;
-    uint32_t max_col = app.ui.get_cols();
-    uint32_t max_row = app.ui.get_rows() - 3;
-    
+
     app.score.get_repeat(count);
     str = "0:" + to_string(count) + " ";
     app.ui.print(0, 0, A_NORMAL, str);
@@ -122,10 +123,10 @@ static int32_t _print_score(
     
     while ((col <= max_col) && (row <= max_row)) {
         
-        if (true != app.score.is_end(index)) {
+        if (true != app.score.is_end(offset)) {
             // grab the next note
-            if ((0 != app.score.get_note(index, note)) ||
-                (0 != app.score.get_count(index++, type, count)) ||
+            if ((0 != app.score.get_note(offset, note)) ||
+                (0 != app.score.get_count(offset++, type, count)) ||
                 (0 != note_to_ascii(note, str))) {
                 return -1;
             }

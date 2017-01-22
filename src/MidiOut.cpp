@@ -1,4 +1,4 @@
-/***** Inlcudes *****/
+/***** Includes *****/
 
 #include "MidiOut.hpp"
 
