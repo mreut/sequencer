@@ -1,11 +1,11 @@
 /***** Includes *****/
 
-#include "Composition.hpp"
+#include "MidiComposition.hpp"
 
 
 /***** Class Methods *****/
 
-Composition::Composition(
+MidiComposition::MidiComposition(
     void)
 {
     MidiScore* p_score = new MidiScore();
@@ -14,7 +14,7 @@ Composition::Composition(
     this->it_ = this->list_.begin();
 }
 
-Composition::~Composition(
+MidiComposition::~MidiComposition(
     void)
 {
     list<MidiScore*>::iterator it;
@@ -22,37 +22,43 @@ Composition::~Composition(
         delete *it;
     }
 }
-#if 0
-int32_t Composition::create_next_score(
+
+int32_t MidiComposition::create_next_score(
     void)
 {
+    MidiScore* p_score = NULL;
+    
     this->mutex_.lock();
-    list<MidiScore>::iterator it = this->it_;
+    list<MidiScore*>::iterator it = this->it_;
     it++;
-    this->list_.insert(it, MidiScore());
+    p_score = new MidiScore();
+    this->list_.insert(it, p_score);
     this->mutex_.unlock();
     
     return 0;
 }
     
-int32_t Composition::create_past_score(
+int32_t MidiComposition::create_past_score(
     void)
 {
+    MidiScore* p_score = NULL;
+    
     this->mutex_.lock();
-    this->list_.insert(this->it_, MidiScore());
+    p_score = new MidiScore();
+    this->list_.insert(this->it_, p_score);
     this->mutex_.unlock();
 
     return 0;
 }
-#endif
-void Composition::delete_score(
+
+void MidiComposition::delete_score(
     void)
 {
     // TODO: Want to avoid problems of disappearing shared memory...
     return;
 }
 
-MidiScore* Composition::get_score(
+MidiScore* MidiComposition::get_score(
     void)
 {
     MidiScore* p_score = NULL;
@@ -64,28 +70,18 @@ MidiScore* Composition::get_score(
     return p_score;
 }
 
-MidiScore* Composition::get_next_score(
+void MidiComposition::next_score(
     void)
 {
-    MidiScore* p_score = NULL;
-    
     this->mutex_.lock();
     this->it_++;
-    p_score = *(this->it_);
     this->mutex_.unlock();
-    
-    return p_score;
 }
     
-MidiScore* Composition::get_past_score(
+void MidiComposition::past_score(
     void)
 {
-    MidiScore* p_score = NULL;
-    
     this->mutex_.lock();
     this->it_--;
-    p_score = *(this->it_);
     this->mutex_.unlock();
-    
-    return p_score;
 }

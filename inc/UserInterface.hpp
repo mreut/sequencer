@@ -3,6 +3,7 @@
 
 /***** Includes *****/
 
+#include <ncurses.h>
 #include <cstdint>
 #include <string>
 #include <condition_variable>
@@ -25,10 +26,10 @@ using namespace std;
 
 class UserInterface {
     public:
-        UserInterface(
+        ~UserInterface(
             void);
         
-        ~UserInterface(
+        void start(
             void);
         
         int32_t clear(

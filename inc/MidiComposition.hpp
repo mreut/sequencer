@@ -17,12 +17,12 @@ using namespace std;
 
 /***** Classes *****/
 
-class Composition {
+class MidiComposition {
     public:
-        Composition(
+        MidiComposition(
             void);
         
-        ~Composition(
+        ~MidiComposition(
             void);
     
         int32_t create_next_score(
@@ -37,10 +37,10 @@ class Composition {
         MidiScore* get_score(
             void);
             
-        MidiScore* get_next_score(
+        void next_score(
             void);
             
-        MidiScore* get_past_score(
+        void past_score(
             void);
             
     private:

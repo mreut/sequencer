@@ -444,6 +444,8 @@ int main(
         goto main_exit;
     }
 
+    app.ui.start();
+
     while (false == is_exit_requested) {
         
         if (true == app.is_ui_refresh) {
