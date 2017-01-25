@@ -101,14 +101,16 @@ int32_t MidiScore::set_bpm(
     return 0;
 }
 
-int32_t MidiScore::get_bpm(
-    uint16_t& bpm)
+uint16_t MidiScore::get_bpm(
+    void)
 {
+    uint16_t bpm = 0;
+    
     this->mutex_.lock();
     bpm = this->bpm_;
     this->mutex_.unlock();
     
-    return 0;
+    return bpm;
 }
 
 int32_t MidiScore::set_repeat(
@@ -121,14 +123,16 @@ int32_t MidiScore::set_repeat(
     return 0;
 }
 
-int32_t MidiScore::get_repeat(
-    uint8_t& repeat)
+uint8_t MidiScore::get_repeat(
+    void)
 {
+    uint8_t repeat = 0;
+    
     this->mutex_.lock();
     repeat = this->repeat_;
     this->mutex_.unlock();
     
-    return 0;
+    return repeat;
 }
 
 int32_t MidiScore::set_note(
@@ -155,19 +159,18 @@ int32_t MidiScore::set_note(
      return 0;
 }
             
-int32_t MidiScore::get_note(
-    uint32_t index,
-    uint8_t& note)
+uint8_t MidiScore::get_note(
+    uint32_t index)
 {
-    if (index > MIDI_SCORE_LENGTH) {
-        return -1;
+    uint8_t note = MIDI_NOTE_REST;
+    
+    if (index < MIDI_SCORE_LENGTH) {
+        this->mutex_.lock();
+        note = this->score_[index].note;
+        this->mutex_.unlock();
     }
     
-    this->mutex_.lock();
-    note = this->score_[index].note;
-    this->mutex_.unlock();
-    
-    return 0;
+    return note;
 }
 
 int32_t MidiScore::set_count(
@@ -238,9 +241,7 @@ int32_t MidiScore::get_note_count(
             enum count_type& type,
             uint8_t& count)
 {
-    if (0 != this->get_note(index, note)) {
-        return -1;
-    }
+    note = this->get_note(index);
     else if (0 != this->get_count(index, type, count)) {
         return -1;
     }

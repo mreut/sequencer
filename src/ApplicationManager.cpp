@@ -7,15 +7,26 @@
 
 /***** Defines *****/
 
-#define SPACES_PER_PARAM 10
+#define SPACES_PER_PARAM 15
 #define SPACES_PER_NOTE 10
 #define SPACES_PER_DIALOG 32
-#define DISPLAY_START_ROW 2
+
+#define MAX_COLUMN (this->ui_.get_cols() - SPACES_PER_NOTE)
+#define MAX_ROW (this->ui_.get_rows())
+
+#define DISPLAY_INFO_START_ROW 0
+#define DISPLAY_INFO_END_ROW 2
+
+#define DISPLAY_FRAME_TOP_ROW (3)
+#define DISPLAY_FRAME_BOTTOM_ROW (MAX_ROW - 3)
+
+#define DISPLAY_SCORE_START_ROW (4)
+#define DISPLAY_SCORE_END_ROW (MAX_ROW - 2)
+
+#define DISPLAY_COMMAND_LINE_ROW (MAX_ROW)
 
 #define CURRENT_SCORE (this->comp_.get_score())
 #define CURRENT_INDEX (this->get_index())
-#define MAX_COLUMN (this->ui_.get_cols() - SPACES_PER_NOTE)
-#define MAX_ROW (this->ui_.get_rows() - 3)
 
 
 /***** Private Class Methods *****/
@@ -28,7 +39,7 @@ void ApplicationManager::play_main(
     uint32_t max_row = MAX_ROW;
     enum count_type type;
     string str = "";
-    uint32_t row = DISPLAY_START_ROW;
+    uint32_t row = DISPLAY_SCORE_START_ROW;
     uint32_t col = 0;
     uint32_t index = 0;
     uint8_t note = 0;
@@ -46,10 +57,13 @@ void ApplicationManager::play_main(
         max_col = MAX_COLUMN;
         max_row = MAX_ROW;
         
-        if ((0 != p_score->get_note_count(index++, note, type, count)) || 
-            (!note_count_to_ascii(note, type, count, str))) {
-            return;
-        }
+        // grab the next note
+        note = p_score->get_note(index);
+        count = p_score->get_count(index);
+        type = p_score->get_count_type(index);
+        index++;
+        
+        note_count_to_ascii(note, type, count, str);
         
         delay = (uint32_t) ((60.0 / (double) bpm) * 1e9);
         delay = (COUNT_DIVIDE == type) ? delay / count : delay * count;
@@ -66,14 +80,14 @@ void ApplicationManager::play_main(
             this->display_refresh();
             index = 0;
             col = 0;
-            row = DISPLAY_START_ROW;
+            row = DISPLAY_SCORE_START_ROW;
         }
         else if (col >= max_col) {
             if (row >= max_row) {
                 // TODO: set play display?
                 this->display_refresh_current_score();
                 col = 0;
-                row = DISPLAY_START_ROW;
+                row = DISPLAY_SCORE_START_ROW;
             }
             else {
                 col = 0;
@@ -119,24 +133,51 @@ void ApplicationManager::display_refresh(
     void)
 {
     this->display_refresh_frame();
+    this->display_refresh_info();
     this->display_refresh_current_score();
+}
+
+void ApplicationManager::display_refresh_info(
+    void)
+{
+    MidiScore* const p_score = CURRENT_SCORE;
+    string str = "";
+    string tmp = ""
+    uint8_t tmp = 0;
+    
+    str = (this->is_play_) ? "[*] " : "[ ] ";
+    str += "Score";
+    this->ui_.print(DISPLAY_INFO_START_ROW, 0, A_NORMAL, str);
+    
+    // 15 spaces per param.
+    str = "Loop           BPM            Origin         Index";
+    this->ui_.print(DISPLAY_INFO_START_ROW + 1, 0, A_NORMAL, str);
+    
+    str = "";
+    // Loop
+    tmp = "0/" + to_string(p_score->get_repeat());
+    str += tmp + string(SPACES_PER_PARAM - tmp.length(), ' ');
+    
+    // BPM
+    tmp = to_string(p_score->get_bpm());
+    str += tmp + string(SPACES_PER_PARAM - tmp.length(), ' ');
+    
+    // TODO: Origin
+    tmp = "0";
+    str += tmp + string(SPACES_PER_PARAM - tmp.length(), ' ');
+    
+    // Index
+    tmp = to_string(this->get_index());
+    str += tmp + string(SPACES_PER_PARAM - tmp.length(), ' ');
+    this->ui_.print(DISPLAY_INFO_START_ROW + 2, 0, A_NORMAL, str);
 }
 
 void ApplicationManager::display_refresh_frame(
     void)
 {
-    MidiScore* const p_score = CURRENT_SCORE;
-    const uint32_t max_line_len = MAX_COLUMN;
-    const uint32_t max_row = MAX_ROW;
-    string str = "";
-    uint8_t tmp = 0;
-    
-    p_score->get_repeat(tmp);
-    str = "0:" + to_string(tmp) + " ";
-    this->ui_.print(0, 0, A_NORMAL, str);
-    str = string(max_line_len, '=');
-    this->ui_.print(1, 0, A_NORMAL, str);
-    this->ui_.print(max_row + 1, 0, A_NORMAL, str);
+    const str = string(MAX_COLUMN, '=');
+    this->ui_.print(DISPLAY_FRAME_TOP_ROW, 0, A_NORMAL, str);
+    this->ui_.print(DISPLAY_FRAME_BOTTOM_ROW, 0, A_NORMAL, str);
 }
 
 void ApplicationManager::display_refresh_current_score(
@@ -145,7 +186,7 @@ void ApplicationManager::display_refresh_current_score(
     MidiScore* const p_score = CURRENT_SCORE;
     const uint32_t max_line_len = MAX_COLUMN;
     const uint32_t max_row = MAX_ROW;
-    uint32_t row = DISPLAY_START_ROW;
+    uint32_t row = DISPLAY_SCORE_START_ROW;
     uint32_t index = CURRENT_INDEX;
     enum count_type type;
     string str = "";
@@ -156,11 +197,14 @@ void ApplicationManager::display_refresh_current_score(
     while (row <= max_row) {
         if (true != p_score->is_end(index)) {
             // grab the next note
-            if ((0 != p_score->get_note_count(index++, note, type, count)) ||
-                (!note_count_to_ascii(note, type, count, str))) {
-                continue;
-            }
-            else if (SPACES_PER_NOTE > str.length()) {
+            note = p_score->get_note(index);
+            count = p_score->get_count(index);
+            type = p_score->get_count_type(index);
+            index++;
+            
+            note_count_to_ascii(note, type, count, str);
+            
+            if (SPACES_PER_NOTE > str.length()) {
                 // pad with spaces to fully erase previous
                 str += string(SPACES_PER_NOTE - str.length(), ' ');
             }
@@ -180,7 +224,15 @@ void ApplicationManager::display_refresh_current_score(
         }
     }
 }
-    
+
+void ApplicationManager::display_refresh_command_line(
+    void)
+{
+    // TODO: command line
+    str = "Hello World!";
+    this->ui_.print(DISPLAY_COMMAND_LINE_ROW, 0, A_NORMAL, str);
+}
+
 void ApplicationManager::start_play_current_score(
     void)
 {
@@ -302,5 +354,3 @@ void ApplicationManager::enter_command(
         break;
     }
 }
-
-

@@ -55,32 +55,35 @@ class MidiScore {
         int32_t set_bpm(
             uint16_t bpm);
         
-        int32_t get_bpm(
-            uint16_t& bpm);
+        uint16_t get_bpm(
+            void);
         
         int32_t set_repeat(
             uint8_t repeat);
         
-        int32_t get_repeat(
-            uint8_t& repeat);
+        uint8_t get_repeat(
+            void);
         
         int32_t set_note(
             uint32_t index,
             uint8_t note);
             
-        int32_t get_note(
-            uint32_t index,
-            uint8_t& note);
+        uint8_t get_note(
+            uint32_t index);
         
         int32_t set_count(
             uint32_t index,
-            enum count_type type,
             uint8_t count);
             
-        int32_t get_count(
+        uint8_t get_count(
+            uint32_t index);
+        
+        int32_t set_count_type(
             uint32_t index,
-            enum count_type& type,
-            uint8_t& count);
+            enum count_type type);
+            
+        enum count_type get_count_type(
+            uint32_t index);
         
         int32_t set_note_count(
                     uint32_t index,

@@ -57,10 +57,16 @@ class ApplicationManager{
         void display_refresh(
             void);
         
+        void display_refresh_info(
+            void);
+        
         void display_refresh_frame(
             void);
         
         void display_refresh_current_score(
+            void);
+            
+        void display_refresh_command_line(
             void);
             
         void start_play_current_score(
