@@ -29,7 +29,7 @@ enum application_command {
     CMD_INDEX_DECREMENT = '!',
     CMD_INDEX_INCREMENT = '@',
     CMD_LOAD = 'L',
-    CMD_MOVE = 'M',
+    CMD_ORIGIN = 'O',
     CMD_NOTE = 'N',
     CMD_PLAY = 'P',
     CMD_QUIT = 'Q',
@@ -44,16 +44,25 @@ class ApplicationManager{
     public:
         ApplicationManager(
             void);
-            
+
         ~ApplicationManager(
             void);
         
-        void display_start(
-            void);
-            
-        void display_stop(
+        int32_t midi_out_start(
+            string port_name);
+        
+        int32_t display_start(
             void);
         
+        void echo_command_line(
+            application_command command,
+            string entry);
+        
+        void enter_command_line(
+            application_command command,
+            string entry);
+        
+    private:
         void display_refresh(
             void);
         
@@ -80,19 +89,14 @@ class ApplicationManager{
             
         void select_past_score(
             void);
-        
-        void enter_command(
-            application_command command,
-            string entry);
-        
-    private:
+    
         void play_main(
             void);
         
         uint32_t get_index(
             void);
             
-        uint32_t get_display(
+        uint32_t get_origin(
             void);
         
         MidiComposition comp_;
@@ -109,7 +113,13 @@ class ApplicationManager{
         
         mutex mutex_;
         
+        string command_line_;
+        
         uint32_t index_;
+        
+        uint32_t origin_;
+        
+        uint32_t play_count;
 };
 
 #endif
