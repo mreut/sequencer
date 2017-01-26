@@ -3,63 +3,137 @@
 #include "ApplicationManager.hpp"
 
 
+/***** Local Variables *****/
+
+bool _is_running = true;
+
+
 /***** Local Functions *****/
 
 static void _handle_backspace(
+    ApplicationManager& app,
     enum application_command& cmd,
     string& entry)
 {
-    if (0 < entry.length()) {
-        entry.pop_back();
-    }
-    else {
-        cmd = CMD_INVALID;
+    if (CMD_INVALID != cmd) {
+        if (0 < entry.length()) {
+            entry.pop_back();
+        }
+        else {
+            cmd = CMD_INVALID;
+        }
+        app.echo_command_line(cmd, entry);
     }
 }
 
 static void _handle_enter(
+    ApplicationManager& app,
     enum application_command& cmd,
     string& entry)
 {
-    cmd = CMD_INVALID;
-    entry = "";
+    switch (cmd) {
+    case (CMD_BPM):
+    case (CMD_INDEX):
+    case (CMD_NOTE):
+    case (CMD_ORIGIN):
+    case (CMD_REPEAT):
+        app.enter_command_line(cmd, entry);
+        cmd = CMD_INVALID;
+        entry = "";
+        break;
+
+    case (CMD_BPM_DECREMENT):
+    case (CMD_BPM_INCREMENT):
+    case (CMD_INDEX_DECREMENT):
+    case (CMD_INDEX_INCREMENT):
+    case (CMD_INVALID):
+    default:
+        cmd = CMD_INVALID;
+        entry = "";
+    }
 }
 
 static void _handle_left(
+    ApplicationManager& app,
     enum application_command& cmd)
 {
-    return;
+    if (CMD_BPM == cmd) {
+        app.enter_command_line(CMD_BPM_DECREMENT);
+    }
+    else if (CMD_INDEX) {
+        app.enter_command_line(CMD_INDEX_DECREMENT);
+    }
 }
 
 static void _handle_right(
+    ApplicationManager& app,
     enum application_command& cmd)
 {
-    return;
+    if (CMD_BPM == cmd) {
+        app.enter_command_line(CMD_BPM_INCREMENT);
+    }
+    else if (CMD_INDEX) {
+        app.enter_command_line(CMD_INDEX_INCREMENT);
+    }
 }
 
 static void _handle_character(
+    ApplicationManager& app,
     enum application_command& cmd,
     string& entry,
     int32_t ch)
 {
-#if 0
-    if ((CMD_SAVE == app.cmd) || (CMD_LOAD == app.cmd)) {
-        if (SPACES_PER_DIALOG > app.entry.length()) {
-            app.entry += ch;
-        }
-    }
-    else if ((CMD_BPM == app.cmd) || (CMD_INDEX == app.cmd)) {
-        // filter out non-numeric characters
-        if ((isdigit(ch)) && ((SPACES_PER_PARAM - 2) > app.entry.length())) {
-            app.entry += ch;
+    if (CMD_INVALID == cmd) {
+        switch (ch) {
+        case (CMD_BPM):
+        case (CMD_INDEX):
+        case (CMD_NOTE):
+        case (CMD_ORIGIN):
+        case (CMD_REPEAT):
+            cmd = (enum application_command) ch;
+            entry = "";
+            app.echo_command_line(cmd, entry);
+            break;
+        
+        case (CMD_PLAY):
+            app.enter_command_line(CMD_PLAY);
+            break;
+        
+        case (CMD_DELETE):
+            app.enter_command_line(CMD_DELETE);
+            break;
+        
+        case (CMD_QUIT):
+            _is_running = false;
+            break;
+        
+        default:
+            cmd = CMD_INVALID;
+            entry = "";
         }
     }
     else {
-        if ((SPACES_PER_PARAM - 2) > app.entry.length()) {
-            app.entry += ch;
+        switch (cmd) {
+        case (CMD_BPM):
+        case (CMD_INDEX):
+        case (CMD_NOTE):
+        case (CMD_ORIGIN):
+        case (CMD_REPEAT):
+            entry += ch;
+            app.echo_command_line(cmd, entry);
+            break;
+
+        case (CMD_BPM_DECREMENT):
+        case (CMD_BPM_INCREMENT):
+        case (CMD_INDEX_DECREMENT):
+        case (CMD_INDEX_INCREMENT):
+        case (CMD_INVALID):
+        default:
+            cmd = CMD_INVALID;
+            entry = "";
+            app.echo_command_line(cmd, entry);
         }
     }
-#endif
 }
 
 /***** Global Functions *****/
@@ -70,6 +144,7 @@ int main(
 {
     ApplicationManager app;
     enum application_command cmd = CMD_INVALID;
+
     string entry = "";
     int32_t in = 0;
     int32_t r = -1;
@@ -87,30 +162,29 @@ int main(
     
     sleep(4);
     
-#if 0
-    while (1) {
+    while (_is_running) {
 
-        if (0 != app.ui.get_input(in)) {
-        if (0 != app.ui.get_input(in)) {
-            break;
+        in = app.get_input();
+        if (in < 0) {
+            _is_running = false;
         }
         else if (isprint(in)) {
-            _handle_character(cmd, entry, in);
+            _handle_character(app, cmd, entry, in);
         }
         else if (KEY_BACKSPACE == in) {
-            _handle_backspace(cmd, entry);
+            _handle_backspace(app, cmd, entry);
         }
         else if ((KEY_ENTER == in) || (10 == in)) {
-            _handle_enter(cmd, entry);
+            _handle_enter(app, cmd, entry);
         }
         else if (KEY_LEFT == in) {
-            _handle_left(cmd);
+            _handle_left(app, cmd);
         }
         else if (KEY_RIGHT == in) {
-            _handle_right(cmd);
+            _handle_right(app, cmd);
         }
     }
-#endif
+    
     r = 0;
 
 main_exit:

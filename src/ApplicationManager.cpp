@@ -12,13 +12,13 @@
 #define SPACES_PER_DIALOG 32
 
 #define MAX_COLUMN ((uint32_t) (this->ui_.get_cols() - SPACES_PER_NOTE))
-#define MAX_ROW ((uint32_t) (this->ui_.get_rows()))
+#define MAX_ROW ((uint32_t) (this->ui_.get_rows()) - 1)
 
 #define DISPLAY_INFO_START_ROW 0
 #define DISPLAY_INFO_END_ROW 2
 
 #define DISPLAY_FRAME_TOP_ROW (3)
-#define DISPLAY_FRAME_BOTTOM_ROW (MAX_ROW - 2)
+#define DISPLAY_FRAME_BOTTOM_ROW (MAX_ROW - 1)
 
 #define DISPLAY_SCORE_START_ROW (4)
 #define DISPLAY_SCORE_END_ROW (MAX_ROW - 3)
@@ -45,14 +45,13 @@ void ApplicationManager::play_main(
     uint8_t count = 0;
     uint16_t bpm = 0;
     uint8_t repeat = 0;
-    uint8_t iter = 0;
     uint64_t delay = 0;
 
     this->mutex_.lock();
-    this->play_count = 0;
+    this->play_count_ = 0;
     this->mutex_.unlock();
     
-    this->display_refresh_frame();
+    this->display_refresh_info();
     
     while (this->is_play_) {
         max_col = MAX_COLUMN;
@@ -77,9 +76,17 @@ void ApplicationManager::play_main(
         this->ui_.print(row, col, A_NORMAL, str);
         
         if (true == p_score->is_end(index)) {
-            // TODO: next score?
-            // TODO: iter?
-            this->display_refresh();
+            
+            this->mutex_.lock();
+            this->play_count_ += 1;
+            if (repeat < this->play_count_) {
+                this->play_count_ = 0;
+                // TODO: next score?
+                p_score = CURRENT_SCORE;
+            }
+            this->mutex_.unlock();
+            
+            this->display_refresh_info();
             index = 0;
             col = 0;
             row = DISPLAY_SCORE_START_ROW;
@@ -100,29 +107,14 @@ void ApplicationManager::play_main(
             col += SPACES_PER_NOTE;
         }
     }
+    
+    this->mutex_.lock();
+    this->play_count_ = 0;
+    this->mutex_.unlock();
 }
 
 
-/***** Public Class Methods *****/
-
-ApplicationManager::ApplicationManager(
-    void)
-{
-    this->is_play_ = false;
-    this->command_line_ = "";
-    this->index_ = 0;
-    this->origin_ = 0;
-    this->play_count = 0;
-}
-
-ApplicationManager::~ApplicationManager(
-    void)
-{
-    if (this->is_play_) {
-        this->is_play_ = false;
-        this->play_thread_.join();
-    }
-}
+/***** Private Class Methods *****/
 
 void ApplicationManager::display_refresh(
     void)
@@ -138,7 +130,6 @@ void ApplicationManager::display_refresh_info(
     MidiScore* const p_score = CURRENT_SCORE;
     string str = "";
     string tmp = "";
-    bool is_play = false;
 
     this->mutex_.lock();
     
@@ -152,7 +143,7 @@ void ApplicationManager::display_refresh_info(
     
     str = "";
     // Repeat
-    tmp = "0/" + to_string(p_score->get_repeat());
+    tmp = to_string(this->play_count_) + "/" + to_string(p_score->get_repeat());
     str += tmp + string(SPACES_PER_PARAM - tmp.length(), ' ');
     
     // BPM
@@ -160,7 +151,7 @@ void ApplicationManager::display_refresh_info(
     str += tmp + string(SPACES_PER_PARAM - tmp.length(), ' ');
     
     // TODO: Origin
-    tmp = "0";
+    tmp = to_string(this->origin_);
     str += tmp + string(SPACES_PER_PARAM - tmp.length(), ' ');
     
     // Index
@@ -230,11 +221,9 @@ void ApplicationManager::display_refresh_command_line(
     void)
 {
     this->mutex_.lock();
-    
-    // TODO: command line
-    string str = "Hello World!";
+    string str = this->command_line_;
+    str += string(MAX_COLUMN - str.length(), ' ');
     this->ui_.print(DISPLAY_COMMAND_LINE_ROW, 0, A_NORMAL, str);
-    
     this->mutex_.unlock();
 }
 
@@ -255,6 +244,25 @@ void ApplicationManager::select_past_score(
 
 /***** Public Class Methods *****/
 
+ApplicationManager::ApplicationManager(
+    void)
+{
+    this->is_play_ = false;
+    this->command_line_ = "";
+    this->index_ = 0;
+    this->origin_ = 0;
+    this->play_count_ = 0;
+}
+
+ApplicationManager::~ApplicationManager(
+    void)
+{
+    if (this->is_play_) {
+        this->is_play_ = false;
+        this->play_thread_.join();
+    }
+}
+
 int32_t ApplicationManager::midi_out_start(
     string port_name)
 {
@@ -268,6 +276,18 @@ int32_t ApplicationManager::display_start(
     this->display_refresh();
     
     return 0;
+}
+
+int32_t ApplicationManager::get_input(
+    void)
+{
+    int32_t ch = 0;
+    
+    if (0 != this->ui_.get_input(ch)) {
+        ch = -1;
+    }
+    
+    return ch;
 }
 
 void ApplicationManager::echo_command_line(
@@ -313,7 +333,7 @@ void ApplicationManager::echo_command_line(
     case (CMD_PLAY):
     case (CMD_QUIT):
     case (CMD_INVALID):
-        this->command_line_ = ": " + entry;
+        this->command_line_ = entry;
         break;
     }
     
@@ -323,7 +343,7 @@ void ApplicationManager::echo_command_line(
 
 void ApplicationManager::enter_command_line(
     application_command command,
-    string entry="N/A")
+    string entry)
 {
     MidiScore* const p_score = CURRENT_SCORE;
     enum count_type type;
@@ -332,6 +352,7 @@ void ApplicationManager::enter_command_line(
     uint16_t bpm;
     bool refresh_score = false;
     bool refresh_info = false;
+    bool end_play = false;
     
     this->mutex_.lock();
     
@@ -383,9 +404,10 @@ void ApplicationManager::enter_command_line(
     
     case (CMD_ORIGIN):
         if (is_number(entry)) {
-        //    app.display = stoi(entry);
-        //    app.index = app.display;
-        //    app.is_ui_refresh = true;
+            this->origin_ = stoi(entry);
+            this->index_ = this->origin_;
+            refresh_info = true;
+            refresh_score = true;
         }
         refresh_info = true;
         refresh_score = true;
@@ -405,6 +427,7 @@ void ApplicationManager::enter_command_line(
             p_score->set_count(this->index_, count);
             p_score->set_count_type(this->index_, type);
             this->index_++;
+            this->display_refresh_info();
             this->display_refresh_current_score();
             refresh_score = true;
         }
@@ -428,8 +451,9 @@ void ApplicationManager::enter_command_line(
     case (CMD_PLAY):
         if (this->is_play_) {
             this->is_play_ = false;
-            this->play_thread_.join();
-            this->display_refresh();
+            end_play = true;
+            refresh_info = true;
+            refresh_score = true;
         }
         else {
             this->is_play_ = true;
@@ -447,6 +471,7 @@ void ApplicationManager::enter_command_line(
     
     this->mutex_.unlock();
     
+    if (end_play) this->play_thread_.join();
     if (refresh_info) this->display_refresh_info();
     if (refresh_score) this->display_refresh_current_score();
     this->display_refresh_command_line();

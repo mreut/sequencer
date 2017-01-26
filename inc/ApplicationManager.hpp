@@ -54,13 +54,16 @@ class ApplicationManager{
         int32_t display_start(
             void);
         
+        int32_t get_input(
+            void);
+        
         void echo_command_line(
             application_command command,
             string entry);
         
         void enter_command_line(
             application_command command,
-            string entry);
+            string entry="");
         
     private:
         void display_refresh(
@@ -111,7 +114,7 @@ class ApplicationManager{
         
         thread play_thread_;
         
-        mutex mutex_;
+        recursive_mutex mutex_;
         
         string command_line_;
         
@@ -119,7 +122,7 @@ class ApplicationManager{
         
         uint32_t origin_;
         
-        uint32_t play_count;
+        uint32_t play_count_;
 };
 
 #endif

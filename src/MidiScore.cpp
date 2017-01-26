@@ -179,7 +179,7 @@ uint8_t MidiScore::get_count(
 {
     uint8_t count = 1;
     
-    if (index > MIDI_SCORE_LENGTH) {
+    if (index < MIDI_SCORE_LENGTH) {
         this->mutex_.lock();
         count = this->score_[index].count;
         this->mutex_.unlock();
