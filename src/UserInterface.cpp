@@ -90,7 +90,22 @@ int32_t _poll_print(
 
 /***** Class Methods *****/
 
-UserInterface::UserInterface(
+UserInterface::~UserInterface(
+    void)
+{
+    if (0 < this->reference_count_) {
+        this->reference_count_--;
+        
+        if (0 == this->reference_count_) {
+            this->thread_.join();
+            
+            close(this->read_pipe_); 
+            close(this->write_pipe_); 
+        }
+    }
+}
+
+void UserInterface::start(
     void)
 {
     int fd[2] = {0, 0};
@@ -112,20 +127,6 @@ UserInterface::UserInterface(
     }
     else {
         this->reference_count_++;
-    }
-}
-        
-UserInterface::~UserInterface(
-    void)
-{
-    this->reference_count_--;
-    
-    if (0 >= this->reference_count_) {
-        
-        this->thread_.join();
-        
-        close(this->read_pipe_); 
-        close(this->write_pipe_); 
     }
 }
 
