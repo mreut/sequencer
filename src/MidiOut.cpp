@@ -1,4 +1,4 @@
-/***** Inlcudes *****/
+/***** Includes *****/
 
 #include "MidiOut.hpp"
 
@@ -19,7 +19,7 @@ MidiOut::~MidiOut(
 }
 
 int32_t MidiOut::open(
-    char* p_port_name)
+    const char* p_port_name)
 {
 #ifndef __MIDI_STUB
     int mode = SND_RAWMIDI_SYNC;

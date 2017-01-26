@@ -22,7 +22,7 @@ class MidiOut {
             void);
         
         int32_t open(
-            char* p_port_name);
+            const char* p_port_name);
         
         int32_t note_on(
             uint8_t note,
