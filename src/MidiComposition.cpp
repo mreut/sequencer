@@ -75,6 +75,9 @@ void MidiComposition::next_score(
 {
     this->mutex_.lock();
     this->it_++;
+    if (this->it_ == this->list_.end()) {
+        this->it_ = this->list_.begin();
+    }
     this->mutex_.unlock();
 }
     

@@ -24,6 +24,9 @@ enum application_command {
     CMD_BPM = 'B',
     CMD_BPM_DECREMENT = '#',
     CMD_BPM_INCREMENT = '$',
+    CMD_CREATE_SCORE = 'C',
+    CMD_TITLE_SCORE = 'T',
+    CMD_VIEW_NEXT_SCORE = 'V',
     CMD_DELETE = 'D',
     CMD_INDEX = 'I',
     CMD_INDEX_DECREMENT = '!',
@@ -57,11 +60,11 @@ class ApplicationManager{
         int32_t get_input(
             void);
         
-        void echo_command_line(
+        void echo_command(
             application_command command,
             string entry);
         
-        void enter_command_line(
+        void enter_command(
             application_command command,
             string entry="");
         

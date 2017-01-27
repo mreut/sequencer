@@ -22,7 +22,7 @@ static void _handle_backspace(
         else {
             cmd = CMD_INVALID;
         }
-        app.echo_command_line(cmd, entry);
+        app.echo_command(cmd, entry);
     }
 }
 
@@ -32,12 +32,14 @@ static void _handle_enter(
     string& entry)
 {
     switch (cmd) {
+    case (CMD_CREATE_SCORE):
+    case (CMD_TITLE_SCORE):
     case (CMD_BPM):
     case (CMD_INDEX):
     case (CMD_NOTE):
     case (CMD_ORIGIN):
     case (CMD_REPEAT):
-        app.enter_command_line(cmd, entry);
+        app.enter_command(cmd, entry);
         cmd = CMD_INVALID;
         entry = "";
         break;
@@ -58,10 +60,10 @@ static void _handle_left(
     enum application_command& cmd)
 {
     if (CMD_BPM == cmd) {
-        app.enter_command_line(CMD_BPM_DECREMENT);
+        app.enter_command(CMD_BPM_DECREMENT);
     }
     else if (CMD_INDEX) {
-        app.enter_command_line(CMD_INDEX_DECREMENT);
+        app.enter_command(CMD_INDEX_DECREMENT);
     }
 }
 
@@ -70,10 +72,10 @@ static void _handle_right(
     enum application_command& cmd)
 {
     if (CMD_BPM == cmd) {
-        app.enter_command_line(CMD_BPM_INCREMENT);
+        app.enter_command(CMD_BPM_INCREMENT);
     }
     else if (CMD_INDEX) {
-        app.enter_command_line(CMD_INDEX_INCREMENT);
+        app.enter_command(CMD_INDEX_INCREMENT);
     }
 }
 
@@ -85,6 +87,8 @@ static void _handle_character(
 {
     if (CMD_INVALID == cmd) {
         switch (ch) {
+        case (CMD_CREATE_SCORE):
+        case (CMD_TITLE_SCORE):
         case (CMD_BPM):
         case (CMD_INDEX):
         case (CMD_NOTE):
@@ -92,15 +96,19 @@ static void _handle_character(
         case (CMD_REPEAT):
             cmd = (enum application_command) ch;
             entry = "";
-            app.echo_command_line(cmd, entry);
+            app.echo_command(cmd, entry);
             break;
         
+        case (CMD_VIEW_NEXT_SCORE):
+            app.enter_command(CMD_VIEW_NEXT_SCORE);
+            break;
+            
         case (CMD_PLAY):
-            app.enter_command_line(CMD_PLAY);
+            app.enter_command(CMD_PLAY);
             break;
         
         case (CMD_DELETE):
-            app.enter_command_line(CMD_DELETE);
+            app.enter_command(CMD_DELETE);
             break;
         
         case (CMD_QUIT):
@@ -114,15 +122,18 @@ static void _handle_character(
     }
     else {
         switch (cmd) {
+        case (CMD_CREATE_SCORE):
+        case (CMD_TITLE_SCORE):
         case (CMD_BPM):
         case (CMD_INDEX):
         case (CMD_NOTE):
         case (CMD_ORIGIN):
         case (CMD_REPEAT):
             entry += ch;
-            app.echo_command_line(cmd, entry);
+            app.echo_command(cmd, entry);
             break;
 
+        case (CMD_VIEW_NEXT_SCORE):
         case (CMD_BPM_DECREMENT):
         case (CMD_BPM_INCREMENT):
         case (CMD_INDEX_DECREMENT):
@@ -131,7 +142,7 @@ static void _handle_character(
         default:
             cmd = CMD_INVALID;
             entry = "";
-            app.echo_command_line(cmd, entry);
+            app.echo_command(cmd, entry);
         }
     }
 }
@@ -159,8 +170,6 @@ int main(
     }
 
     app.display_start();
-    
-    sleep(4);
     
     while (_is_running) {
 
