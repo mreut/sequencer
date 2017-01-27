@@ -81,12 +81,12 @@ void ApplicationManager::play_main(
             this->play_count_ += 1;
             if (repeat < this->play_count_) {
                 this->play_count_ = 0;
-                // TODO: next score?
+                this->comp_.next_score();
                 p_score = CURRENT_SCORE;
             }
             this->mutex_.unlock();
             
-            this->display_refresh_info();
+            this->display_refresh();
             index = 0;
             col = 0;
             row = DISPLAY_SCORE_START_ROW;
@@ -113,9 +113,6 @@ void ApplicationManager::play_main(
     this->mutex_.unlock();
 }
 
-
-/***** Private Class Methods *****/
-
 void ApplicationManager::display_refresh(
     void)
 {
@@ -134,11 +131,12 @@ void ApplicationManager::display_refresh_info(
     this->mutex_.lock();
     
     str = (this->is_play_) ? "[*] " : "[ ] ";
-    str += "Score";
+    str += p_score->get_name();
+    str += string(MAX_COLUMN - str.length(), ' ');
     this->ui_.print(DISPLAY_INFO_START_ROW, 0, A_NORMAL, str);
     
     // 15 spaces per param.
-    str = "Repeat         BPM            Origin         Index";
+    str = "REPEAT         BPM            ORIGIN         INDEX";
     this->ui_.print(DISPLAY_INFO_START_ROW + 1, 0, A_NORMAL, str);
     
     str = "";
@@ -248,6 +246,7 @@ ApplicationManager::ApplicationManager(
     void)
 {
     this->is_play_ = false;
+    this->command_ = CMD_INVALID;
     this->command_line_ = "";
     this->index_ = 0;
     this->origin_ = 0;
@@ -290,13 +289,21 @@ int32_t ApplicationManager::get_input(
     return ch;
 }
 
-void ApplicationManager::echo_command_line(
+void ApplicationManager::echo_command(
     application_command command,
     string entry)
 {
     this->mutex_.lock();
     
     switch (command) {
+    case (CMD_CREATE_SCORE):
+        this->command_line_ = "[CREATE]: " + entry;
+        break;
+        
+    case (CMD_TITLE_SCORE):
+        this->command_line_ = "[TITLE]: " + entry;
+        break;
+        
     case (CMD_BPM):
         this->command_line_ = "[BPM]: " + entry;
         break;
@@ -325,6 +332,7 @@ void ApplicationManager::echo_command_line(
         this->command_line_ = "[LOAD]: " + entry;
         break;
     
+    case (CMD_VIEW_NEXT_SCORE):
     case (CMD_BPM_DECREMENT):
     case (CMD_BPM_INCREMENT):
     case (CMD_INDEX_DECREMENT):
@@ -341,11 +349,11 @@ void ApplicationManager::echo_command_line(
     this->display_refresh_command_line();
 }
 
-void ApplicationManager::enter_command_line(
+void ApplicationManager::enter_command(
     application_command command,
     string entry)
 {
-    MidiScore* const p_score = CURRENT_SCORE;
+    MidiScore* p_score = CURRENT_SCORE;
     enum count_type type;
     uint8_t note;
     uint8_t count;
@@ -357,6 +365,28 @@ void ApplicationManager::enter_command_line(
     this->mutex_.lock();
     
     switch (command) {
+    case (CMD_CREATE_SCORE):
+        this->comp_.create_next_score();
+        this->comp_.next_score();
+        this->origin_ = 0;
+        this->index_ = 0;
+        p_score = CURRENT_SCORE;
+        p_score->set_name(entry);
+        refresh_score = true;
+        refresh_info = true;
+        break;
+        
+    case (CMD_TITLE_SCORE):
+        p_score->set_name(entry);
+        refresh_info = true;
+        break;
+        
+    case (CMD_VIEW_NEXT_SCORE):
+        this->comp_.next_score();
+        refresh_score = true;
+        refresh_info = true;
+        break;
+        
     case (CMD_BPM):
         if (is_number(entry)) {
             bpm = stoi(entry);

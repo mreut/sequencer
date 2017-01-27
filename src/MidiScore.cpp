@@ -17,6 +17,7 @@ MidiScore::MidiScore(
         this->score_[n].count = 1;
         this->score_[n].type = COUNT_MULTIPLY;
     }
+    this->name_ = "SCORE";
     this->bpm_ = 60;
     this->repeat_ = 0;
     this->last_note_ = -1;
@@ -85,6 +86,26 @@ int32_t MidiScore::load(
     }
 
     return r;
+}
+
+void MidiScore::set_name(
+    string name)
+{
+    this->mutex_.lock();
+    this->name_ = name;
+    this->mutex_.unlock();
+}
+    
+string MidiScore::get_name(
+    void)
+{
+    string name = "";
+    
+    this->mutex_.lock();
+    name = this->name_;
+    this->mutex_.unlock();
+    
+    return name;
 }
 
 void MidiScore::set_bpm(

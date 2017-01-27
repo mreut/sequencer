@@ -52,6 +52,12 @@ class MidiScore {
         int32_t load(
             string name);
         
+        void set_name(
+            string name);
+            
+        string get_name(
+            void);
+        
         void set_bpm(
             uint16_t bpm);
         
@@ -93,6 +99,8 @@ class MidiScore {
         
     private:
         struct score_step score_[MIDI_SCORE_LENGTH];
+        
+        string name_;
         
         uint16_t bpm_;
         
