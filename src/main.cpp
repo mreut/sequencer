@@ -18,11 +18,12 @@ static void _handle_backspace(
     if (CMD_INVALID != cmd) {
         if (0 < entry.length()) {
             entry.pop_back();
+            app.echo_command(cmd, entry);
         }
         else {
             cmd = CMD_INVALID;
+            app.echo_command(cmd);
         }
-        app.echo_command(cmd, entry);
     }
 }
 
@@ -39,6 +40,8 @@ static void _handle_enter(
     case (CMD_NOTE):
     case (CMD_ORIGIN):
     case (CMD_REPEAT):
+    case (CMD_SAVE):
+    case (CMD_LOAD):
         app.enter_command(cmd, entry);
         cmd = CMD_INVALID;
         entry = "";
@@ -61,10 +64,13 @@ static void _handle_left(
 {
     if (CMD_BPM == cmd) {
         app.enter_command(CMD_BPM_DECREMENT);
+        app.echo_command(cmd);
     }
-    else if (CMD_INDEX) {
+    else if (CMD_INDEX == cmd) {
         app.enter_command(CMD_INDEX_DECREMENT);
+        app.echo_command(cmd);
     }
+    
 }
 
 static void _handle_right(
@@ -73,9 +79,11 @@ static void _handle_right(
 {
     if (CMD_BPM == cmd) {
         app.enter_command(CMD_BPM_INCREMENT);
+        app.echo_command(cmd);
     }
-    else if (CMD_INDEX) {
+    else if (CMD_INDEX == cmd) {
         app.enter_command(CMD_INDEX_INCREMENT);
+        app.echo_command(cmd);
     }
 }
 
@@ -86,6 +94,9 @@ static void _handle_character(
     int32_t ch)
 {
     if (CMD_INVALID == cmd) {
+        // capitalize all alphabetical input for command character
+        if (isalpha(ch)) ch &= ~0x20;
+        
         switch (ch) {
         case (CMD_CREATE_SCORE):
         case (CMD_TITLE_SCORE):
@@ -94,6 +105,8 @@ static void _handle_character(
         case (CMD_NOTE):
         case (CMD_ORIGIN):
         case (CMD_REPEAT):
+        case (CMD_SAVE):
+        case (CMD_LOAD):
             cmd = (enum application_command) ch;
             entry = "";
             app.echo_command(cmd, entry);
@@ -124,11 +137,13 @@ static void _handle_character(
         switch (cmd) {
         case (CMD_CREATE_SCORE):
         case (CMD_TITLE_SCORE):
+        case (CMD_NOTE):
         case (CMD_BPM):
         case (CMD_INDEX):
-        case (CMD_NOTE):
         case (CMD_ORIGIN):
         case (CMD_REPEAT):
+        case (CMD_SAVE):
+        case (CMD_LOAD):
             entry += ch;
             app.echo_command(cmd, entry);
             break;

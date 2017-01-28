@@ -17,7 +17,7 @@ MidiScore::MidiScore(
         this->score_[n].count = 1;
         this->score_[n].type = COUNT_MULTIPLY;
     }
-    this->name_ = "SCORE";
+    this->name_ = "Score";
     this->bpm_ = 60;
     this->repeat_ = 0;
     this->last_note_ = -1;
@@ -26,17 +26,20 @@ MidiScore::MidiScore(
 int32_t MidiScore::save(
     string name)
 {
+    string str = "";
     int32_t r = -1;
     ofstream out;
     
     out.open(name);
     if (true == out.is_open()) {
+        out << this->name_ + "\n";
         out << to_string(this->bpm_) + "\n";
         for (int32_t n = 0; n <= this->last_note_; n++) {
-            out << to_string(this->score_[n].note) + "\n";
-            out << to_string(this->score_[n].count) + "\n";
-            out << to_string(this->score_[n].type) + "\n";
-            out << to_string(this->score_[n].count) + "\n";
+            note_count_to_ascii(this->score_[n].note,
+                                this->score_[n].type,
+                                this->score_[n].count,
+                                str);
+            out << str + "\n";
         }
         out.close();
         r = 0;
@@ -48,6 +51,9 @@ int32_t MidiScore::save(
 int32_t MidiScore::load(
     string name)
 {
+    uint8_t note = 0;
+    uint8_t count = 0;
+    enum count_type type;
     uint32_t n = 0;
     int32_t r = -1;
     string str = "";
@@ -56,35 +62,38 @@ int32_t MidiScore::load(
     in.open(name);
     if (true == in.is_open()) {
         
-        this->last_note_ = 0;
         getline(in, str);
         
         if (true != in.eof()) {
-            this->bpm_ = stoi(str);
             
-            while (n < MIDI_SCORE_LENGTH) {
-                // first is midi note number
-                getline(in, str);
-                if ('\0' == str[0]) break;
-                this->score_[n].note = stoi(str);
-                // second is note count
-                getline(in, str);
-                if ('\0' == str[0]) break;
-                this->score_[n].count = stoi(str);
-                this->last_note_ = n++;
-                // third is type
-                getline(in, str);
-                if ('\0' == str[0]) break;
-                this->score_[n].type = (enum count_type) stoi(str);
-                // fourth is count
-                getline(in, str);
-                if ('\0' == str[0]) break;
-                this->score_[n].count = stoi(str);
+            this->name_ = str;
+            getline(in, str);
+            
+            if (true != in.eof()) {
+                this->bpm_ = stoi(str);
+                
+                while ((n < MIDI_SCORE_LENGTH) && (!in.eof())) {
+
+                    getline(in, str);
+                    if (!in.eof()) {
+                        if (!ascii_to_note_count(str, note, type, count)) {
+                            // TODO: error!
+                            goto load_exit;
+                        }
+                        
+                        this->score_[n].note = note;
+                        this->score_[n].type = type;
+                        this->score_[n].count = count;
+                        this->last_note_++;
+                        n++;
+                    }
+                }
             }
         }
         r = 0;
     }
 
+load_exit:
     return r;
 }
 
@@ -284,6 +293,9 @@ bool ascii_to_note(
         note = MIDI_NOTE_REST;
     }
     else if (isalpha(ascii[0])) {
+        // capitalize all alphabetical input for note letter
+        if (isalpha(ascii[0])) ascii[0] &= ~0x20;
+        
         switch(ascii[0]) {
         case ('A'):
             tmp = 9;
@@ -349,6 +361,7 @@ bool ascii_to_note_count(
         if (true == is_number(tmp)) {
             count = stoi(tmp);
             type = COUNT_MULTIPLY;
+            r = tmp.length() - 1;
             tmp = ascii.substr(0, ascii.length() - r);
         }
         else {
@@ -361,6 +374,7 @@ bool ascii_to_note_count(
         if (true == is_number(tmp)) {
             count = stoi(tmp);
             type = COUNT_DIVIDE;
+            r = tmp.length() - 1;
             tmp = ascii.substr(0, ascii.length() - r);
         }
         else {
