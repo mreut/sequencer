@@ -8,7 +8,7 @@
 /***** Defines *****/
 
 #define SPACES_PER_PARAM 15
-#define SPACES_PER_NOTE 10
+#define SPACES_PER_NOTE 12
 #define SPACES_PER_DIALOG 32
 
 #define MAX_COLUMN ((uint32_t) (this->ui_.get_cols() - SPACES_PER_NOTE))
@@ -24,6 +24,8 @@
 #define DISPLAY_SCORE_END_ROW (MAX_ROW - 3)
 
 #define DISPLAY_COMMAND_LINE_ROW (MAX_ROW)
+
+#define COMMAND_LINE_DEFAULT ("[ ]")
 
 #define CURRENT_SCORE (this->comp_.get_score())
 
@@ -54,17 +56,19 @@ void ApplicationManager::play_main(
     this->display_refresh_info();
     
     while (this->is_play_) {
-        max_col = MAX_COLUMN;
+        max_col = MAX_COLUMN - SPACES_PER_NOTE;
         max_row = MAX_ROW;
         // grab the next note
         bpm = p_score->get_bpm();
         note = p_score->get_note(index);
         count = p_score->get_count(index);
         type = p_score->get_count_type(index);
-        repeat = p_score->get_repeat();
-        index++;
-        
+        repeat = p_score->get_repeat();        
         note_count_to_ascii(note, type, count, str);
+        
+        this->mutex_.lock();
+        if (index++ == this->index_) str = "[" + str + "]";
+        this->mutex_.unlock();
         
         delay = (uint32_t) ((60.0 / (double) bpm) * 1e9);
         delay = (COUNT_DIVIDE == type) ? delay / count : delay * count;
@@ -119,6 +123,7 @@ void ApplicationManager::display_refresh(
     this->display_refresh_frame();
     this->display_refresh_info();
     this->display_refresh_current_score();
+    this->display_refresh_command_line();
 }
 
 void ApplicationManager::display_refresh_info(
@@ -136,7 +141,7 @@ void ApplicationManager::display_refresh_info(
     this->ui_.print(DISPLAY_INFO_START_ROW, 0, A_NORMAL, str);
     
     // 15 spaces per param.
-    str = "REPEAT         BPM            ORIGIN         INDEX";
+    str = "Repeat         BPM            Origin         Index";
     this->ui_.print(DISPLAY_INFO_START_ROW + 1, 0, A_NORMAL, str);
     
     str = "";
@@ -148,7 +153,7 @@ void ApplicationManager::display_refresh_info(
     tmp = to_string(p_score->get_bpm());
     str += tmp + string(SPACES_PER_PARAM - tmp.length(), ' ');
     
-    // TODO: Origin
+    // Origin
     tmp = to_string(this->origin_);
     str += tmp + string(SPACES_PER_PARAM - tmp.length(), ' ');
     
@@ -173,7 +178,7 @@ void ApplicationManager::display_refresh_current_score(
 {
     MidiScore* const p_score = CURRENT_SCORE;
     uint32_t row = DISPLAY_SCORE_START_ROW;
-    uint32_t index = 0;
+    uint32_t n = 0;
     enum count_type type;
     string str = "";
     string line = "";
@@ -181,18 +186,20 @@ void ApplicationManager::display_refresh_current_score(
     uint8_t count = 0;
     
     this->mutex_.lock();
-    index = this->origin_;
+    n = this->origin_;
     this->mutex_.unlock();
     
     while (row <= DISPLAY_SCORE_END_ROW) {
-        if (true != p_score->is_end(index)) {
+        if (true != p_score->is_end(n)) {
             // grab the next note
-            note = p_score->get_note(index);
-            count = p_score->get_count(index);
-            type = p_score->get_count_type(index);
-            index++;
-            
+            note = p_score->get_note(n);
+            count = p_score->get_count(n);
+            type = p_score->get_count_type(n);            
             note_count_to_ascii(note, type, count, str);
+            
+            this->mutex_.lock();
+            if (n++ == this->index_) str = "[" + str + "]";
+            this->mutex_.unlock();
             
             if (SPACES_PER_NOTE > str.length()) {
                 // pad with spaces to fully erase previous
@@ -247,7 +254,7 @@ ApplicationManager::ApplicationManager(
 {
     this->is_play_ = false;
     this->command_ = CMD_INVALID;
-    this->command_line_ = "";
+    this->command_line_ = COMMAND_LINE_DEFAULT;
     this->index_ = 0;
     this->origin_ = 0;
     this->play_count_ = 0;
@@ -297,39 +304,39 @@ void ApplicationManager::echo_command(
     
     switch (command) {
     case (CMD_CREATE_SCORE):
-        this->command_line_ = "[CREATE]: " + entry;
+        this->command_line_ = "[C]reate " + entry;
         break;
         
     case (CMD_TITLE_SCORE):
-        this->command_line_ = "[TITLE]: " + entry;
+        this->command_line_ = "[T]itle " + entry;
         break;
         
     case (CMD_BPM):
-        this->command_line_ = "[BPM]: " + entry;
+        this->command_line_ = "[B]PM " + entry;
         break;
 
     case (CMD_INDEX):
-        this->command_line_ = "[INDEX]: " + entry;
+        this->command_line_ = "[I]ndex " + entry;
         break;
     
     case (CMD_ORIGIN):
-        this->command_line_ = "[ORIGIN]: " + entry;
+        this->command_line_ = "[O]rigin " + entry;
         break;
     
     case (CMD_REPEAT):
-        this->command_line_ = "[REPEAT]: " + entry;
+        this->command_line_ = "[R]epeat " + entry;
         break;
     
     case (CMD_NOTE):
-        this->command_line_ = "[NOTE]: " + entry;
+        this->command_line_ = "[N]ote " + entry;
         break;
     
     case (CMD_SAVE):
-        this->command_line_ = "[SAVE]: " + entry;
+        this->command_line_ = "[S]ave " + entry;
         break;
     
     case (CMD_LOAD):
-        this->command_line_ = "[LOAD]: " + entry;
+        this->command_line_ = "[L]oad " + entry;
         break;
     
     case (CMD_VIEW_NEXT_SCORE):
@@ -341,7 +348,7 @@ void ApplicationManager::echo_command(
     case (CMD_PLAY):
     case (CMD_QUIT):
     case (CMD_INVALID):
-        this->command_line_ = entry;
+        this->command_line_ = "[ ]";
         break;
     }
     
@@ -411,25 +418,22 @@ void ApplicationManager::enter_command(
     
     case (CMD_INDEX):
         if (is_number(entry)) {
-            this->mutex_.lock();
             this->index_ = stoi(entry);
-            this->mutex_.unlock();
             refresh_info = true;
+            refresh_score = true;
         }
         break;
     
     case (CMD_INDEX_DECREMENT):
-        this->mutex_.lock();
         if (0 != this->index_) this->index_--;
-        this->mutex_.unlock();
         refresh_info = true;
+        refresh_score = true;
         break;
     
     case (CMD_INDEX_INCREMENT):
-        this->mutex_.lock();
         this->index_++;
-        this->mutex_.unlock();
         refresh_info = true;
+        refresh_score = true;
         break;
     
     case (CMD_ORIGIN):
@@ -497,7 +501,7 @@ void ApplicationManager::enter_command(
         break;
     }
     
-    this->command_line_ = "";
+    this->command_line_ = COMMAND_LINE_DEFAULT;
     
     this->mutex_.unlock();
     

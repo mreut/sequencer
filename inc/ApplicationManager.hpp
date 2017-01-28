@@ -62,7 +62,7 @@ class ApplicationManager{
         
         void echo_command(
             application_command command,
-            string entry);
+            string entry="");
         
         void enter_command(
             application_command command,

@@ -230,7 +230,7 @@ void UserInterface::ncurses_main(
         n = getch();
         if (ERR != n) {
             // capitalize all alphabetical input
-            if (isalpha(n)) n &= ~0x20;
+            //if (isalpha(n)) n &= ~0x20;
             this->mutex_.lock();
             this->fifo_.push(n);
             this->condition_.notify_one();
