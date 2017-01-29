@@ -9,6 +9,7 @@
 
 #include "MidiComposition.hpp"
 #include "MidiOut.hpp"
+#include "MulticastSocket.hpp"
 #include "UserInterface.hpp"
 
 

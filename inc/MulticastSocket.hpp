@@ -7,6 +7,8 @@
 #include <cstdint>
 #include <sys/types.h>
 #include <sys/socket.h>
+#include <arpa/inet.h>
+#include <netinet/in.h>
 
 
 /***** Namespace *****/
@@ -30,12 +32,17 @@ class MulticastSocket {
             uint16_t port);
         
         bool master_send(
-            uint8_t& buf,
-            uint16_t buf_len);
+            uint8_t* buf,
+            uint32_t buf_len);
         
         bool slave_open(
             string ip_address,
             uint16_t port);
+    
+        bool slave_recv(
+            uint8_t* buf,
+            uint32_t buf_len,
+            struct timeval timeout);
     
     private:
         struct sockaddr_in addr_;
@@ -45,3 +52,6 @@ class MulticastSocket {
         uint16_t port_;
         bool is_master_;
         bool is_slave_;
+};
+
+#endif
