@@ -19,7 +19,6 @@ LDFLAGS= -lasound -lncurses -lpthread
 
 # Note the order of source files
 SOURCES= $(SRC_DIR)/main.cpp
-#SOURCES= $(SRC_DIR)/MulticastSocketUnitTest.cpp
 
 SOURCES+= \
 	$(SRC_DIR)/ApplicationManager.cpp \
