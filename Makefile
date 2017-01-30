@@ -17,12 +17,14 @@ CFLAGS+= -I./inc -I/usr/include/alsa/
 LDFLAGS= -lasound -lncurses -lpthread
 
 # Note the order of source files
-SOURCES= \
-	$(SRC_DIR)/main.cpp \
+SOURCES= $(SRC_DIR)/main.cpp
+
+SOURCES+= \
 	$(SRC_DIR)/ApplicationManager.cpp \
 	$(SRC_DIR)/MidiComposition.cpp \
 	$(SRC_DIR)/MidiOut.cpp \
 	$(SRC_DIR)/MidiScore.cpp \
+	$(SRC_DIR)/MulticastSocket.cpp \
 	$(SRC_DIR)/UserInterface.cpp \
 	$(SRC_DIR)/utility.cpp
 

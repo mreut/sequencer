@@ -9,6 +9,7 @@
 
 #include "MidiComposition.hpp"
 #include "MidiOut.hpp"
+#include "MulticastSocket.hpp"
 #include "UserInterface.hpp"
 
 
@@ -67,6 +68,12 @@ class ApplicationManager{
         void enter_command(
             application_command command,
             string entry="");
+            
+        void start_master(
+            void);
+            
+        void start_slave(
+            void);
         
     private:
         void display_refresh(
@@ -84,19 +91,16 @@ class ApplicationManager{
         void display_refresh_command_line(
             void);
             
-        void start_play_current_score(
-            void);
-            
-        void stop_play_current_score(
-            void);
-            
         void select_next_score(
             void);
             
         void select_past_score(
             void);
-    
+        
         void play_main(
+            void);
+            
+        void slave_main(
             void);
         
         uint32_t get_index(
@@ -109,13 +113,19 @@ class ApplicationManager{
         
         MidiOut out_;
         
+        MulticastSocket socket_;
+        
         UserInterface ui_;
         
         enum application_command command_;
         
+        bool is_running_;
+
         bool is_play_;
         
         thread play_thread_;
+        
+        thread slave_thread_;
         
         recursive_mutex mutex_;
         

@@ -33,6 +33,7 @@ int32_t MidiScore::save(
     out.open(name);
     if (true == out.is_open()) {
         out << this->name_ + "\n";
+        out << to_string(this->repeat_) + "\n";
         out << to_string(this->bpm_) + "\n";
         for (int32_t n = 0; n <= this->last_note_; n++) {
             note_count_to_ascii(this->score_[n].note,
@@ -62,36 +63,37 @@ int32_t MidiScore::load(
     in.open(name);
     if (true == in.is_open()) {
         
+        // TODO: IMPROVE THIS BIG TIME!
         getline(in, str);
+        this->name_ = str;
+        getline(in, str);
+        this->repeat_ = stoi(str);
+        getline(in, str);
+        this->bpm_ = stoi(str);
         
-        if (true != in.eof()) {
-            
-            this->name_ = str;
-            getline(in, str);
-            
-            if (true != in.eof()) {
-                this->bpm_ = stoi(str);
-                
-                while ((n < MIDI_SCORE_LENGTH) && (!in.eof())) {
+        if (in.eof()) {
+            goto load_exit;
+        }
+        
+        while ((n < MIDI_SCORE_LENGTH) && (!in.eof())) {
 
-                    getline(in, str);
-                    if (!in.eof()) {
-                        if (!ascii_to_note_count(str, note, type, count)) {
-                            // TODO: error!
-                            goto load_exit;
-                        }
-                        
-                        this->score_[n].note = note;
-                        this->score_[n].type = type;
-                        this->score_[n].count = count;
-                        this->last_note_++;
-                        n++;
-                    }
+            getline(in, str);
+            if (!in.eof()) {
+                if (!ascii_to_note_count(str, note, type, count)) {
+                    // TODO: error!
+                    goto load_exit;
                 }
+                
+                this->score_[n].note = note;
+                this->score_[n].type = type;
+                this->score_[n].count = count;
+                this->last_note_++;
+                n++;
             }
         }
-        r = 0;
     }
+
+    r = 0;
 
 load_exit:
     return r;

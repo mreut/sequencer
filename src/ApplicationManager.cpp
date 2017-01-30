@@ -25,9 +25,12 @@
 
 #define DISPLAY_COMMAND_LINE_ROW (MAX_ROW)
 
-#define COMMAND_LINE_DEFAULT ("[ ]")
+#define COMMAND_LINE_DEFAULT ("[#]")
 
 #define CURRENT_SCORE (this->comp_.get_score())
+
+#define MULTICAST_IP ("225.0.0.37")
+#define MULTICAST_PORT (12345)
 
 
 /***** Private Class Methods *****/
@@ -115,6 +118,38 @@ void ApplicationManager::play_main(
     this->mutex_.lock();
     this->play_count_ = 0;
     this->mutex_.unlock();
+}
+
+void ApplicationManager::slave_main(
+    void)
+{
+    enum application_command cmd = CMD_INVALID;
+    struct timeval timeout;
+    timeout.tv_sec = 0;
+    timeout.tv_usec = 10000;
+    
+    while (this->is_running_) {
+        if (this->socket_.slave_recv((uint8_t*) &cmd, sizeof(cmd), timeout)) {
+            
+            if (CMD_PLAY == cmd) {
+                this->mutex_.lock();
+                if (this->is_play_) {
+                    this->is_play_ = false;
+                    this->mutex_.unlock();
+                    this->play_thread_.join();
+                    this->display_refresh();
+                }
+                else {
+                    this->is_play_ = true;
+                    this->mutex_.unlock();
+                    this->play_thread_ = thread(&ApplicationManager::play_main,
+                                                this);
+                    this->display_refresh_info();
+                }
+            }
+        }
+        cmd = CMD_INVALID;
+    }
 }
 
 void ApplicationManager::display_refresh(
@@ -252,6 +287,7 @@ void ApplicationManager::select_past_score(
 ApplicationManager::ApplicationManager(
     void)
 {
+    this->is_running_ = true;
     this->is_play_ = false;
     this->command_ = CMD_INVALID;
     this->command_line_ = COMMAND_LINE_DEFAULT;
@@ -263,9 +299,15 @@ ApplicationManager::ApplicationManager(
 ApplicationManager::~ApplicationManager(
     void)
 {
+    this->is_running_ = false;
+    
     if (this->is_play_) {
         this->is_play_ = false;
         this->play_thread_.join();
+    }
+    
+    if (this->socket_.is_slave()) {
+        this->slave_thread_.join();
     }
 }
 
@@ -483,6 +525,10 @@ void ApplicationManager::enter_command(
         break;
         
     case (CMD_PLAY):
+        if (this->socket_.is_master()) {
+            this->socket_.master_send((uint8_t*) &command, sizeof(command));
+        }
+    
         if (this->is_play_) {
             this->is_play_ = false;
             end_play = true;
@@ -509,4 +555,25 @@ void ApplicationManager::enter_command(
     if (refresh_info) this->display_refresh_info();
     if (refresh_score) this->display_refresh_current_score();
     this->display_refresh_command_line();
+}
+
+void ApplicationManager::start_master(
+    void)
+{
+    if ((this->socket_.is_master()) || (this->socket_.is_slave())) {
+        return;
+    }
+    
+    this->socket_.master_open(MULTICAST_IP, MULTICAST_PORT);
+}
+    
+void ApplicationManager::start_slave(
+    void)
+{
+    if ((this->socket_.is_master()) || (this->socket_.is_slave())) {
+        return;
+    }
+    
+    this->socket_.slave_open(MULTICAST_IP, MULTICAST_PORT);
+    this->slave_thread_ = thread(&ApplicationManager::slave_main, this);
 }
