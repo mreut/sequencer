@@ -147,3 +147,15 @@ bool MulticastSocket::slave_recv(
     
     return true;
 }
+
+bool MulticastSocket::is_master(
+    void)
+{
+    return this->is_master_;
+}
+
+bool MulticastSocket::is_slave(
+    void)
+{
+    return this->is_slave_;
+}

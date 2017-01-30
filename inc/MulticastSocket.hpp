@@ -44,6 +44,12 @@ class MulticastSocket {
             uint32_t buf_len,
             struct timeval timeout);
     
+        bool is_master(
+            void);
+    
+        bool is_slave(
+            void);
+    
     private:
         struct sockaddr_in addr_;
         struct ip_mreq group_;

@@ -184,6 +184,15 @@ int main(
         goto main_exit;
     }
 
+    if (argv[2]) {
+        if ('m' == argv[2][0]) {
+            app.start_master();
+        }
+        else if ('s' == argv[2][0]) {
+            app.start_slave();
+        }
+    }
+
     app.display_start();
     
     while (_is_running) {
