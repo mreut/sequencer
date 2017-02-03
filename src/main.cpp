@@ -162,6 +162,74 @@ static void _handle_character(
     }
 }
 
+static bool _arg_parse(
+    ApplicationManager& app,
+    int argc,
+    char* argv[])
+{
+    string s;
+    bool is_midi_open = false;
+    bool success = true;
+    
+    for (int n = 1; (n < argc) && (success); n++) {
+        s = string(argv[n]);
+        
+        if ((0 == s.compare("--midi")) ||
+            (0 == s.compare("-m"))) {
+            // midi output device name
+            if ((n++ + 1) < argc) {
+                if ((!is_midi_open) && (0 != app.midi_out_start(argv[n]))) {
+                    // failed to open midi output
+                    success = false;
+                }
+                else {
+                    // TODO: subsequent midi out will not be reported as error
+                    is_midi_open = true;
+                }
+            }
+            else {
+                // no argument provided
+                success = false;
+            }
+        }
+        else if ((0 == s.compare("--master")) ||
+                 (0 == s.compare("-m"))) {
+            
+            if (!app.is_slave()) {
+                app.start_master();
+            }
+            else {
+                // already opened as slave
+                success = false;
+            }
+        }
+        else if ((0 == s.compare("--slave")) ||
+                 (0 == s.compare("-s"))) {
+            
+            if (!app.is_master()) {
+                app.start_slave();
+            }
+            else {
+                // already opened as master
+                success = false;
+            }
+        }
+        else {
+            // unrecognized option
+            success = false;
+        }
+    }
+    
+    if (!is_midi_open) {
+        // TODO: add function in ApplicationManager to better track this...
+        // failed to specify midi output
+        success = false;
+    }
+    
+    return success;
+}
+
+
 /***** Global Functions *****/
 
 int main(
@@ -175,24 +243,11 @@ int main(
     int32_t in = 0;
     int32_t r = -1;
     
-    if (!argv[1]) {
-        printf("Error: missing sequencer file name\n");
+    if (!_arg_parse(app, argc, argv)) {
+        printf("Error: bad command line argument\n");
         goto main_exit;
     }
-    else if (0 != app.midi_out_start(argv[1])) {
-        printf("Error: failed to open midi output device\n");
-        goto main_exit;
-    }
-
-    if (argv[2]) {
-        if ('m' == argv[2][0]) {
-            app.start_master();
-        }
-        else if ('s' == argv[2][0]) {
-            app.start_slave();
-        }
-    }
-
+    
     app.display_start();
     
     while (_is_running) {

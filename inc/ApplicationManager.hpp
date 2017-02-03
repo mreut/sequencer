@@ -74,6 +74,12 @@ class ApplicationManager{
             
         void start_slave(
             void);
+
+        bool is_master(
+            void);
+            
+        bool is_slave(
+            void);
         
     private:
         void display_refresh(

@@ -577,3 +577,15 @@ void ApplicationManager::start_slave(
     this->socket_.slave_open(MULTICAST_IP, MULTICAST_PORT);
     this->slave_thread_ = thread(&ApplicationManager::slave_main, this);
 }
+
+bool ApplicationManager::is_master(
+    void)
+{
+    return this->socket_.is_master();
+}
+
+bool ApplicationManager::is_slave(
+    void)
+{
+    return this->socket_.is_slave();
+}
